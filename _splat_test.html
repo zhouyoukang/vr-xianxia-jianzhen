@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SparkJS Minimal Test</title>
+  <style>body{margin:0;overflow:hidden;background:#000}#log{position:fixed;top:10px;left:10px;color:#0f0;font:13px monospace;z-index:9;background:rgba(0,0,0,0.7);padding:8px;max-height:50vh;overflow-y:auto}</style>
+</head>
+<body>
+  <div id="log">⏳ Starting...</div>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.178.0/three.module.js",
+      "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/0.1.10/spark.module.js"
+    }
+  }
+  </script>
+  <script type="module">
+    const log = (msg) => { 
+      console.log(msg); 
+      document.getElementById('log').textContent += '\n' + msg; 
+    };
+
+    try {
+      log('1. Importing THREE...');
+      const THREE = await import('three');
+      log('2. THREE imported: r' + THREE.REVISION);
+
+      log('3. Importing SparkJS...');
+      const { SplatMesh } = await import('@sparkjsdev/spark');
+      log('4. SplatMesh: ' + (typeof SplatMesh));
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+      log('5. WebGL renderer created');
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color('#1a1a2e');
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 1.6, 3);
+
+      // WorldLabs SPZ — Ancient Immortal Palace in Clouds (low quality, ~1.4MB)
+      const spzUrl = 'https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/b0150f15-ebb2-4550-8c89-bfe765340d53_ceramic_500k.spz';
+      log('6. Creating SplatMesh with URL: ' + spzUrl.substring(0, 60) + '...');
+      
+      const t0 = performance.now();
+      const splat = new SplatMesh({ 
+        url: spzUrl,
+        onLoad: (mesh) => {
+          const dt = ((performance.now() - t0) / 1000).toFixed(1);
+          log('✅ onLoad fired after ' + dt + 's');
+          log('   BBox: ' + JSON.stringify(mesh.getBoundingBox()));
+        }
+      });
+      splat.scale.setScalar(1.36);
+      splat.position.y = 1.9;
+      scene.add(splat);
+      log('7. SplatMesh added to scene');
+
+      let frameCount = 0;
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+        frameCount++;
+        if (frameCount === 1) log('8. First frame rendered');
+        if (frameCount === 60) log('9. 60 frames rendered');
+        if (frameCount === 300) log('10. 300 frames rendered (5s)');
+      });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+    } catch (e) {
+      log('❌ ERROR: ' + e.message);
+      console.error(e);
+    }
+  </script>
+</body>
+</html>
