@@ -1339,19 +1339,20 @@
               setLoadProgress(90);
               showLoading(true, "场景就绪!");
 
-              // 道·观: Scene-aware camera framing + cinematic auto-orbit
-              const eyeY = 1.6;
-              const pullback = Math.max(0.3, scale * 0.15);
+              // 道·归位: Camera at original viewpoint — 万物各归其位
+              // groundOff = where the capture eye was; camera MUST be there
+              const eyeY = Math.max(1.6, groundOff);
+              const pullback = Math.max(0.3, scale * 0.2);
               state.playerPos.set(0, eyeY, pullback);
               camera.position.set(0, eyeY, pullback);
               camera.fov = IS_MOBILE ? 70 : 75;
-              camera.near = 0.01;
-              camera.far = 2000;
+              camera.near = Math.max(0.01, scale * 0.002);
+              camera.far = Math.max(2000, eyeY * 3);
               camera.updateProjectionMatrix();
               if (controls) {
-                controls.target.set(0, eyeY * 0.85, -(pullback + 1));
+                controls.target.set(0, eyeY - 0.3, -(pullback + 1));
                 controls.minDistance = 0;
-                controls.maxDistance = 1000;
+                controls.maxDistance = Math.max(50, scale * 8);
                 controls.autoRotate = true;
                 controls.autoRotateSpeed = 0.4;
                 controls.update();
@@ -2433,8 +2434,8 @@
       function enableFlatMode() {
         controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
-        controls.maxPolarAngle = Math.PI * 0.85;
+        controls.dampingFactor = 0.12;
+        controls.maxPolarAngle = Math.PI * 0.95;
         controls.minDistance = 0.5;
         controls.maxDistance = 50;
         controls.target.set(0, 1.2, 0);
@@ -2524,7 +2525,8 @@
         ) {
           controls.autoRotate = false;
         }
-        const speed = 3 * delta;
+        const sceneScale = state.currentSplat?.scale?.x || 1;
+        const speed = 3 * delta * Math.max(1, sceneScale * 0.4);
         camera.getWorldDirection(_xFwdVec);
         _xFwdVec.y = 0;
         _xFwdVec.normalize();
