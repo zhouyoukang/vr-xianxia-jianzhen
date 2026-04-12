@@ -1448,6 +1448,7 @@
       );
 
       let _loadingWorld = false;
+      let _splatReady = false; // 道·序: true only after onLoad fires — blocks auto-quality until splat renders
       async function loadWorld(worldId, quality = "low") {
         if (_loadingWorld) return; // Prevent concurrent loads
         _loadingWorld = true;
@@ -1566,10 +1567,16 @@
               setLoadProgress(40);
               showLoading(true, "加载 Gaussian Splat...");
 
+              _splatReady = false;
               const splat = new SplatMesh({
                 url: spzUrl,
                 onLoad: (mesh) => {
-                  console.log("✅ SPZ onLoad:", world.name, "splats ready");
+                  _splatReady = true;
+                  console.log(
+                    "✅ SPZ onLoad:",
+                    world.name,
+                    "splats ready for rendering",
+                  );
                   setLoadProgress(100);
                   showLoading(false);
                 },
@@ -3285,24 +3292,17 @@
             _hudFpsEl.textContent = `${adaptiveSwordCount}剑 ${fps}FPS | ${Sense.label}`;
           // 道·适应: dynamic quality — 唯变所适 适应一切
           const _qCooldownOk = performance.now() - _lastQualitySwitch > 15000;
-          if (
-            fps < 8 &&
-            state.quality !== "low" &&
-            !_loadingWorld &&
-            _qCooldownOk
-          ) {
+          // 道·序: Never switch quality while splat is loading/processing
+          const _canSwitchQuality =
+            !_loadingWorld && _splatReady && _qCooldownOk;
+          if (fps < 8 && state.quality !== "low" && _canSwitchQuality) {
             console.warn("⚠️ 道·退: FPS=" + fps + ", 自动降级画质");
             state.quality = "low";
             _lastQualitySwitch = performance.now();
             _stableFpsHigh = 0;
             updateQualityHUD();
             loadWorld(state.currentWorldId, "low");
-          } else if (
-            fps > 55 &&
-            state.quality === "low" &&
-            !_loadingWorld &&
-            _qCooldownOk
-          ) {
+          } else if (fps > 55 && state.quality === "low" && _canSwitchQuality) {
             _stableFpsHigh++;
             if (_stableFpsHigh >= 4) {
               console.log("🔺 道·进: FPS=" + fps + " stable, 升级至medium");
