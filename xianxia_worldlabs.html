@@ -1558,50 +1558,35 @@
           );
 
           // 道·生: Load 3D Gaussian Splat via SparkJS SplatMesh
+          // CRITICAL: SplatMesh MUST be added to scene IMMEDIATELY — SparkRenderer
+          // processes it during the render loop. Awaiting onLoad before scene.add
+          // creates a deadlock (SparkRenderer never sees the mesh → never processes → onLoad never fires).
           if (typeof SplatMesh === "function") {
             try {
               setLoadProgress(40);
-              showLoading(true, "下载 Gaussian Splat...");
+              showLoading(true, "加载 Gaussian Splat...");
 
-              const splat = await new Promise((resolve, reject) => {
-                const _timeout = setTimeout(
-                  () => reject(new Error("SPZ load timeout (60s)")),
-                  60000,
-                );
-                try {
-                  const mesh = new SplatMesh({
-                    url: spzUrl,
-                    onLoad: (loadedMesh) => {
-                      clearTimeout(_timeout);
-                      console.log("✅ SPZ onLoad fired:", world.name);
-                      resolve(loadedMesh);
-                    },
-                  });
-                  // Safety: if onLoad never fires, the timeout will reject
-                  // But also handle immediate constructor errors
-                  mesh._spzUrl = spzUrl; // tag for debug
-                } catch (constructErr) {
-                  clearTimeout(_timeout);
-                  reject(constructErr);
-                }
+              const splat = new SplatMesh({
+                url: spzUrl,
+                onLoad: (mesh) => {
+                  console.log("✅ SPZ onLoad:", world.name, "splats ready");
+                  setLoadProgress(100);
+                  showLoading(false);
+                },
               });
 
-              // Apply world scale & position
+              // Apply world scale & position IMMEDIATELY
               splat.scale.setScalar(scale);
               splat.position.y = groundOff;
-              // 道·正位: WorldLabs SPZ uses THREE.js convention (Y-up) — no rotation needed
               splat.quaternion.identity();
 
-              // 道·架构: Add to localFrame (same parent as SparkRenderer & camera)
-              // This ensures splat coordinates stay near SparkRenderer's origin for float16 precision
+              // 道·架构: Add to localFrame IMMEDIATELY (same parent as SparkRenderer & camera)
+              // SparkRenderer will auto-detect and process the SplatMesh during render loop
               localFrame.add(splat);
               state.currentSplat = splat;
 
-              setLoadProgress(100);
-              showLoading(false);
-
               console.log(
-                `✅ World loaded: ${world.name} (${actualQuality}${actualQuality !== quality ? ", requested " + quality : ""})`,
+                `🌐 World loading: ${world.name} (${actualQuality}${actualQuality !== quality ? ", requested " + quality : ""}) url=${spzUrl.substring(0, 60)}...`,
               );
               if (actualQuality !== quality) state.quality = actualQuality;
               updateSceneSwitcher();
