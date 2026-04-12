@@ -12,11 +12,12 @@
 
 | 入口 | URL |
 |------|-----|
-| **公网HTTPS (Cloudflare Tunnel)** | 运行 `node _start_tunnel.js` 获取临时公网URL |
+| **公网HTTPS (GitHub Pages)** | **https://zhouyoukang.github.io/vr-xianxia-jianzhen/** |
 | **阿里云HTTPS** | https://aiotvr.xyz/quest/jianzhen.html |
 | **本地开发** | http://localhost:8870 |
+| **Quest 3 直连** | 戴上头显 → Oculus Browser → 输入 GitHub Pages URL |
 | **Quest 3 ADB** | `adb reverse tcp:8870 tcp:8870` → http://localhost:8870 |
-| **Quest 3 WiFi公网** | 戴上头显 → Oculus Browser → 粘贴Cloudflare Tunnel URL |
+| **Cloudflare Tunnel** | 运行 `node _start_tunnel.js` 获取临时公网URL |
 
 ## 核心功能
 
