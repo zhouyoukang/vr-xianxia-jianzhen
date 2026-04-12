@@ -1333,9 +1333,8 @@
               const groundOff = (world.ground_offset || 0) * scale;
               splat.position.y = groundOff;
 
-              // 道·正位: 180° X rotation — COLMAP/NeRF (Y-down) → THREE.js (Y-up)
-              // Every SparkJS example requires this for correct orientation
-              splat.quaternion.set(1, 0, 0, 0);
+              // 道·正位: WorldLabs SPZ uses THREE.js convention (Y-up) — no rotation needed
+              splat.quaternion.identity();
 
               scene.add(splat);
               state.currentSplat = splat;
@@ -1343,18 +1342,20 @@
               setLoadProgress(90);
               showLoading(true, "场景就绪!");
 
-              // 道·归位: Camera at the original capture viewpoint — 万物各归其位
+              // 道·归位: Camera at capture viewpoint with natural pullback — 万物各归其位
               // groundOff = capture eye height above Y=0; camera belongs there
+              // pullback proportional to scale → same perceived distance in all scenes
               const eyeY = groundOff || 1.6;
-              const lookDist = Math.max(2, scale * 1.5);
-              state.playerPos.set(0, eyeY, 0);
-              camera.position.set(0, eyeY, 0);
+              const pullback = Math.max(0.5, scale * 0.8);
+              const lookDist = Math.max(2, scale * 2);
+              state.playerPos.set(0, eyeY, pullback);
+              camera.position.set(0, eyeY, pullback);
               camera.fov = IS_MOBILE ? 65 : 60;
               camera.near = Math.max(0.01, scale * 0.005);
               camera.far = Math.max(1000, eyeY * 5, scale * 100);
               camera.updateProjectionMatrix();
               if (controls) {
-                // Look forward into the scene (THREE.js -Z), slightly below eye level
+                // Look forward into the scene, slightly below eye level
                 controls.target.set(0, eyeY * 0.92, -lookDist);
                 controls.minDistance = 0;
                 controls.maxDistance = Math.max(100, scale * 30);
@@ -1363,7 +1364,7 @@
                 controls.update();
               }
               console.log(
-                `🎯 道·归位: eyeY=${eyeY.toFixed(1)} scale=${scale.toFixed(2)} groundOff=${groundOff.toFixed(1)} lookDist=${lookDist.toFixed(1)}`,
+                `🎯 道·归位: eyeY=${eyeY.toFixed(1)} scale=${scale.toFixed(2)} groundOff=${groundOff.toFixed(1)} pullback=${pullback.toFixed(1)} lookDist=${lookDist.toFixed(1)}`,
               );
               // 道·境: Scene-adaptive atmosphere
               const atmo = SCENE_ATMOSPHERE[worldId];
