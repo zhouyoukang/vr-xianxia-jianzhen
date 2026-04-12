@@ -404,10 +404,90 @@
       #med-vignette.active {
         opacity: 1;
       }
+      #cam-preview {
+        position: fixed;
+        bottom: 140px;
+        left: 12px;
+        width: 160px;
+        height: 120px;
+        border-radius: 12px;
+        border: 2px solid rgba(0, 255, 136, 0.3);
+        z-index: 50;
+        display: none;
+        object-fit: cover;
+        transform: scaleX(-1);
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
+      }
+      #cam-canvas {
+        position: fixed;
+        bottom: 140px;
+        left: 12px;
+        width: 160px;
+        height: 120px;
+        border-radius: 12px;
+        z-index: 51;
+        pointer-events: none;
+        display: none;
+      }
+      #cam-toggle {
+        position: fixed;
+        bottom: 100px;
+        left: 12px;
+        z-index: 60;
+        padding: 6px 14px;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid rgba(0, 255, 136, 0.3);
+        border-radius: 20px;
+        color: #00ff88;
+        font-size: 12px;
+        cursor: pointer;
+        display: none;
+        backdrop-filter: blur(8px);
+        transition: all 0.3s;
+      }
+      #cam-toggle:hover {
+        background: rgba(0, 255, 136, 0.1);
+        border-color: #00ff88;
+      }
+      #cam-toggle.active {
+        border-color: #00ff88;
+        box-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+      }
+      #cam-gesture-label {
+        position: fixed;
+        bottom: 264px;
+        left: 12px;
+        width: 160px;
+        text-align: center;
+        z-index: 52;
+        color: #00ff88;
+        font-size: 13px;
+        font-weight: bold;
+        text-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+        pointer-events: none;
+        display: none;
+      }
+      @media (max-width: 480px) {
+        #cam-preview,
+        #cam-canvas {
+          width: 110px;
+          height: 82px;
+        }
+        #cam-gesture-label {
+          width: 110px;
+          bottom: 226px;
+          font-size: 11px;
+        }
+        #cam-toggle {
+          font-size: 11px;
+          padding: 4px 10px;
+        }
+      }
     </style>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="preconnect" href="https://unpkg.com" crossorigin />
     <link rel="preconnect" href="https://esm.sh" crossorigin />
+    <link rel="preconnect" href="https://storage.googleapis.com" crossorigin />
   </head>
   <body>
     <div id="overlay">
@@ -506,10 +586,11 @@
       <p></p>
     </div>
     <div id="med-vignette"></div>
-    <div id="controls-hint">
-      <b style="color: #00ff88">修仙操控</b><br />WASD移动 Space↑ Shift↓<br />1🔥火球
-      2❄️冰封 3⚡雷法 4⚔️剑气<br />F御剑飞行 M打坐修炼 双击切阵
-    </div>
+    <video id="cam-preview" autoplay playsinline muted></video>
+    <canvas id="cam-canvas"></canvas>
+    <div id="cam-gesture-label"></div>
+    <button id="cam-toggle">📷 摄像头手势</button>
+    <div id="controls-hint"></div>
 
     <!-- ╔═══════════════════════════════════════════════════════════╗
          ║  道·源 DaoSource — CDN自适应: 万源归一 · 唯变所适         ║
@@ -651,7 +732,277 @@
         console.log("道·感知", S.label);
         return S;
       })();
-      const IS_MOBILE = Sense.mobile || Sense.hmd;
+
+      // ╔══════════════════════════════════════════════════════════════╗
+      // ║  道·目 DaoEye — 摄像头手势识别 · Camera Hand Tracking       ║
+      // ║  平面设备利用摄像头资源 · 完全手势识别 · 道法自然            ║
+      // ║  MediaPipe HandLandmarker 21关节 → 手势分类 → 剑阵控制      ║
+      // ║  反者道之动: XR手部追踪的镜像 · 万设备归一                   ║
+      // ╚══════════════════════════════════════════════════════════════╝
+      const DaoEye = (() => {
+        let hl = null,
+          active = false,
+          ready = false,
+          lastT = 0;
+        let _initPromise = null;
+        let _v = null,
+          _c = null,
+          _ctx = null,
+          _starting = false;
+        const _gestureNames = {
+          LOTUS: "🌸 莲花",
+          DRAGON: "🐉 游龙",
+          SHIELD: "🛡️ 剑盾",
+          DAGENG: "🤘 大庚",
+        };
+        const _labelEl = () => document.getElementById("cam-gesture-label");
+
+        async function init() {
+          if (_initPromise) return _initPromise;
+          _initPromise = (async () => {
+            try {
+              const { FilesetResolver, HandLandmarker } =
+                await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs");
+              const fs = await FilesetResolver.forVisionTasks(
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm",
+              );
+              hl = await HandLandmarker.createFromOptions(fs, {
+                baseOptions: {
+                  modelAssetPath:
+                    "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task",
+                  delegate: "GPU",
+                },
+                numHands: 2,
+                runningMode: "VIDEO",
+                minHandDetectionConfidence: 0.5,
+                minHandPresenceConfidence: 0.5,
+                minTrackingConfidence: 0.5,
+              });
+              ready = true;
+              console.log("道·目 HandLandmarker 就绪");
+            } catch (e) {
+              console.warn("道·目 初始化失败:", e);
+              ready = false;
+              _initPromise = null;
+            }
+          })();
+          return _initPromise;
+        }
+
+        async function startCamera() {
+          if (_starting || active) return false;
+          _starting = true;
+          const v = document.getElementById("cam-preview");
+          if (!v) {
+            _starting = false;
+            return false;
+          }
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: "user",
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+              },
+            });
+            v.srcObject = stream;
+            await v.play();
+            const c = document.getElementById("cam-canvas");
+            if (c) {
+              c.width = v.videoWidth || 640;
+              c.height = v.videoHeight || 480;
+              c.style.display = "block";
+            }
+            const lbl = _labelEl();
+            if (lbl) lbl.style.display = "block";
+            _v = v;
+            _c = c;
+            _ctx = c?.getContext("2d");
+            active = true;
+            v.style.display = "block";
+            const btn = document.getElementById("cam-toggle");
+            if (btn) {
+              btn.textContent = "📷 关闭摄像头";
+              btn.classList.add("active");
+            }
+            console.log("道·目 摄像头已启动", v.videoWidth, "x", v.videoHeight);
+            if (!ready) {
+              if (lbl) lbl.textContent = "⏳ 加载手势模型...";
+              await init();
+              if (!ready && lbl) lbl.textContent = "⚠️ 模型加载失败，点击重试";
+            }
+            _starting = false;
+            return true;
+          } catch (e) {
+            console.warn("道·目 摄像头不可用:", e);
+            alert(
+              "摄像头不可用: " +
+                (e.name === "NotAllowedError" ? "请允许摄像头权限" : e.message),
+            );
+            _starting = false;
+            return false;
+          }
+        }
+
+        function stopCamera() {
+          const v = document.getElementById("cam-preview");
+          if (v?.srcObject) {
+            v.srcObject.getTracks().forEach((t) => t.stop());
+            v.srcObject = null;
+            v.style.display = "none";
+          }
+          const c = document.getElementById("cam-canvas");
+          if (c) c.style.display = "none";
+          const lbl = _labelEl();
+          if (lbl) lbl.style.display = "none";
+          active = false;
+          _v = null;
+          _c = null;
+          _ctx = null;
+          const btn = document.getElementById("cam-toggle");
+          if (btn) {
+            btn.textContent = "📷 摄像头手势";
+            btn.classList.remove("active");
+          }
+        }
+
+        function toggle() {
+          active ? stopCamera() : startCamera();
+        }
+
+        // Hand connection indices for overlay drawing
+        const _conns = [
+          [0, 1],
+          [1, 2],
+          [2, 3],
+          [3, 4],
+          [0, 5],
+          [5, 6],
+          [6, 7],
+          [7, 8],
+          [5, 9],
+          [9, 10],
+          [10, 11],
+          [11, 12],
+          [9, 13],
+          [13, 14],
+          [14, 15],
+          [15, 16],
+          [13, 17],
+          [17, 18],
+          [18, 19],
+          [19, 20],
+          [0, 17],
+        ];
+
+        function detect(ts) {
+          if (!active || !ready || !hl || !_v) return null;
+          if (_v.readyState < 2) return null;
+          if (ts - lastT < 33) return null; // cap at ~30fps
+          lastT = ts;
+          try {
+            const r = hl.detectForVideo(_v, ts);
+            if (!r?.landmarks?.length) {
+              const lbl = _labelEl();
+              if (lbl) lbl.textContent = "✋ 请伸出手掌...";
+              if (_ctx && _c) _ctx.clearRect(0, 0, _c.width, _c.height);
+              return null;
+            }
+            const lm = r.landmarks[0];
+            const w = lm[0]; // wrist
+
+            // Finger extension: tip-to-wrist > mcp-to-wrist * threshold
+            const d = (a, b) =>
+              Math.sqrt(
+                (a.x - b.x) ** 2 +
+                  (a.y - b.y) ** 2 +
+                  ((a.z || 0) - (b.z || 0)) ** 2,
+              );
+            const ext = (tip, mcp) => d(lm[tip], w) > d(lm[mcp], w) * 1.04;
+
+            const thb = ext(4, 2),
+              idx = ext(8, 5),
+              mid = ext(12, 9);
+            const rng = ext(16, 13),
+              pnk = ext(20, 17);
+            const cnt = [thb, idx, mid, rng, pnk].filter(Boolean).length;
+
+            // Classify: same logic as detectXRHandGesture
+            let gesture = "LOTUS";
+            if (cnt <= 1) gesture = "SHIELD";
+            else if (idx && pnk && !mid && !rng) gesture = "DAGENG";
+            else if (
+              (thb && idx && !mid && !rng && !pnk) ||
+              (idx && mid && !rng && !pnk)
+            )
+              gesture = "DRAGON";
+            else if (idx && mid && rng && pnk) gesture = "LOTUS";
+
+            // Palm center (wrist ↔ middle-finger-mcp midpoint)
+            const px = (w.x + lm[9].x) / 2,
+              py = (w.y + lm[9].y) / 2;
+            // Mirror X for selfie camera
+            const mx = (x) => 1 - x;
+
+            // Draw skeleton overlay on cam-canvas
+            if (_ctx && _c) {
+              const c = _c,
+                ctx = _ctx;
+              ctx.clearRect(0, 0, c.width, c.height);
+              const cw = c.width,
+                ch = c.height;
+              // Connections
+              ctx.strokeStyle = "rgba(0,255,136,0.5)";
+              ctx.lineWidth = 2;
+              for (const [a, b] of _conns) {
+                ctx.beginPath();
+                ctx.moveTo((1 - lm[a].x) * cw, lm[a].y * ch);
+                ctx.lineTo((1 - lm[b].x) * cw, lm[b].y * ch);
+                ctx.stroke();
+              }
+              // Joints
+              ctx.fillStyle = "#00ff88";
+              for (const p of lm) {
+                ctx.beginPath();
+                ctx.arc((1 - p.x) * cw, p.y * ch, 3, 0, Math.PI * 2);
+                ctx.fill();
+              }
+              // Palm center marker
+              ctx.fillStyle = "rgba(255,170,68,0.8)";
+              ctx.beginPath();
+              ctx.arc((1 - px) * cw, py * ch, 6, 0, Math.PI * 2);
+              ctx.fill();
+            }
+
+            // Update gesture label
+            const lbl = _labelEl();
+            if (lbl) lbl.textContent = _gestureNames[gesture] || gesture;
+
+            return {
+              gesture,
+              palmNDC: { x: mx(px) * 2 - 1, y: -(py * 2 - 1) },
+              indexNDC: { x: mx(lm[8].x) * 2 - 1, y: -(lm[8].y * 2 - 1) },
+              isTracking: true,
+            };
+          } catch (e) {
+            return null;
+          }
+        }
+
+        return {
+          init,
+          startCamera,
+          stopCamera,
+          toggle,
+          detect,
+          get active() {
+            return active;
+          },
+          get ready() {
+            return ready;
+          },
+        };
+      })();
 
       // ╔══════════════════════════════════════════════════════════════╗
       // ║  道·配置 DaoCfg — 一切参数从设备能力动态推导 · 完全软编码  ║
@@ -975,7 +1326,6 @@
       let audioCtx = null,
         masterGain = null,
         swordDrone = null,
-        droneGainNode = null,
         drone2Node = null;
       function initAudio() {
         if (audioCtx) return;
@@ -994,7 +1344,6 @@
         droneFilter.frequency.value = 200;
         swordDrone.connect(droneFilter);
         droneFilter.connect(droneGain);
-        droneGainNode = droneGain;
         droneGain.connect(masterGain);
         swordDrone.start();
         // Second harmonic
@@ -1437,12 +1786,14 @@
         // Cycle formation mode
         if (window._daoIntent_cycleMode) {
           window._daoIntent_cycleMode = false;
-          const idx = modeOrder.indexOf(state.gestureMode);
-          state.gestureMode = modeOrder[(idx + 1) % modeOrder.length];
-          confirmedGesture = state.gestureMode;
-          modeSwitchFlash = 1.0;
-          playModeSwitch();
-          updateDroneMode(state.gestureMode);
+          if (!DaoEye.active) {
+            const idx = modeOrder.indexOf(state.gestureMode);
+            state.gestureMode = modeOrder[(idx + 1) % modeOrder.length];
+            confirmedGesture = state.gestureMode;
+            modeSwitchFlash = 1.0;
+            playModeSwitch();
+            updateDroneMode(state.gestureMode);
+          }
         }
         // Cast spell
         if (window._daoIntent_spell) {
@@ -1461,13 +1812,13 @@
           toggleMeditation();
         }
         // Gyroscope → target position (mobile flat mode)
-        if (_gyro.on && !state.isVR && flatMode) {
+        if (_gyro.on && !state.isVR && flatMode && !DaoEye.active) {
           const gx = THREE.MathUtils.clamp(_gyro.gamma / 45, -1, 1) * 3;
           const gy = THREE.MathUtils.clamp((_gyro.beta - 45) / 45, -1, 1) * 3;
           state.targetPosition.lerp(_tmpVec1.set(gx, 1.2 - gy, -2), 0.08);
         }
         // Touch → target position (mobile flat mode)
-        if (_touch.active && flatMode && !_gyro.on) {
+        if (_touch.active && flatMode && !_gyro.on && !DaoEye.active) {
           const ndcX = (_touch.x / window.innerWidth) * 2 - 1;
           const ndcY = -(_touch.y / window.innerHeight) * 2 + 1;
           _ptrVec.set(ndcX, ndcY, 0.5).unproject(camera);
@@ -2988,8 +3339,9 @@
         scene.fog.near = 15;
         scene.fog.far = 50;
 
-        // Mouse/touch for target
+        // Mouse/touch for target (yields to camera when active)
         const onPointer = (e) => {
+          if (DaoEye.active) return;
           const rect = renderer.domElement.getBoundingClientRect();
           const cx = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
           const cy = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
@@ -3025,6 +3377,7 @@
 
         // Double-click to cycle mode (T3-2: avoids conflict with OrbitControls drag)
         renderer.domElement.addEventListener("dblclick", () => {
+          if (DaoEye.active) return;
           const idx = modeOrder.indexOf(state.gestureMode);
           state.gestureMode = modeOrder[(idx + 1) % modeOrder.length];
           confirmedGesture = state.gestureMode;
@@ -3053,6 +3406,7 @@
           else if (k === "f") toggleFlight();
           else if (k === "m") toggleMeditation();
           else if (k === "q") {
+            if (DaoEye.active) return;
             const idx2 = modeOrder.indexOf(state.gestureMode);
             state.gestureMode = modeOrder[(idx2 + 1) % modeOrder.length];
             confirmedGesture = state.gestureMode;
@@ -3061,6 +3415,14 @@
             updateDroneMode(state.gestureMode);
           }
         });
+
+        // 道·目: Show camera toggle if device has camera
+        const camBtn = document.getElementById("cam-toggle");
+        if (camBtn && navigator.mediaDevices?.getUserMedia) {
+          camBtn.style.display = "block";
+          camBtn.onclick = () => DaoEye.toggle();
+          DaoEye.init(); // pre-load model in background
+        }
 
         // Show cultivation HUD + device-adaptive controls hint
         document.getElementById("cultivation-hud").style.display = "flex";
@@ -3072,7 +3434,8 @@
             '<b style="color:#00ff88">触控修仙</b><br/>' +
             "拖动=移动剑阵 双击=切换阵型<br/>" +
             "右划🔥火球 上划⚡雷法 下划❄️冰封 左划⚔️剑气<br/>" +
-            (Sense.gyro ? "倾斜手机=瞄准方向" : "");
+            (Sense.gyro ? "倾斜手机=瞄准方向<br/>" : "") +
+            "📷摄像头手势=手掌控剑";
         } else if (_gp.on) {
           hint.innerHTML =
             '<b style="color:#00ff88">手柄修仙</b><br/>' +
@@ -3081,7 +3444,7 @@
             "Y=飞行 Select=打坐 B/Start=切阵";
         } else {
           hint.innerHTML =
-            '<b style="color:#00ff88">修仙操控</b><br/>WASD移动 Space↑ Shift↓<br/>1🔥火球 2❄️冰封 3⚡雷法 4⚔️剑气<br/>F御剑飞行 M打坐修炼 双击切阵';
+            '<b style="color:#00ff88">修仙操控</b><br/>WASD移动 Space↑ Shift↓<br/>1🔥火球 2❄️冰封 3⚡雷法 4⚔️剑气<br/>F御剑飞行 M打坐修炼 双击切阵<br/>📷摄像头手势=手掌控剑';
         }
         hint.style.display = "block";
         hint.style.opacity = "1";
@@ -3216,6 +3579,7 @@
 
       renderer.xr.addEventListener("sessionstart", () => {
         state.isVR = true;
+        if (DaoEye.active) DaoEye.stopCamera();
         document.getElementById("overlay").classList.add("hidden");
         initAudio();
         scene.fog.near = 25;
@@ -3533,6 +3897,48 @@
           orb.material.opacity =
             0.3 + Math.sin(time * 1.5 + orb.userData.phase) * 0.2;
         });
+
+        // 道·目: Camera hand gesture tracking (flat devices)
+        if (DaoEye.active && flatMode && !state.isVR) {
+          const camR = DaoEye.detect(performance.now());
+          if (camR) {
+            state.isTracking = true;
+            const ndc =
+              confirmedGesture === "DRAGON" ? camR.indexNDC : camR.palmNDC;
+            _ptrVec.set(ndc.x, ndc.y, 0.5).unproject(camera);
+            _ptrVec.sub(camera.position).normalize();
+            const cd = (1.2 - camera.position.y) / _ptrVec.y || 3;
+            _ptrWorldPos
+              .copy(camera.position)
+              .addScaledVector(_ptrVec, Math.abs(cd));
+            state.targetPosition.lerp(_ptrWorldPos, 0.12);
+            // Gesture debounce (same as XR hand tracking)
+            if (camR.gesture !== pendingGesture) {
+              pendingGesture = camR.gesture;
+              gestureStartTime = time;
+            } else if (
+              time - gestureStartTime > GESTURE_DELAY &&
+              camR.gesture !== confirmedGesture
+            ) {
+              confirmedGesture = camR.gesture;
+              state.gestureMode = camR.gesture;
+              modeSwitchFlash = 1.0;
+              playModeSwitch();
+              updateDroneMode(state.gestureMode);
+            }
+            // Dragon path update
+            if (confirmedGesture === "DRAGON") {
+              const last = state.pathHistory[0];
+              _handDiffVec.copy(state.targetPosition).sub(last);
+              if (_handDiffVec.length() > 0.01) {
+                state.lastDirection.copy(_handDiffVec.normalize());
+                const _hRec = state.pathHistory.pop();
+                _hRec.copy(state.targetPosition);
+                state.pathHistory.unshift(_hRec);
+              }
+            }
+          }
+        }
 
         // Cultivation updates (flat mode)
         if (!state.isVR) {

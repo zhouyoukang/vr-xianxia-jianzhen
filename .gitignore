@@ -1,0 +1,11 @@
+# Dev/test artifacts
+_e2e_full.py
+_q3_verify.py
+_q3_serve.py
+_q3_beacon_result.json
+worldlabs_hub.py
+_AGENT_GUIDE.md
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

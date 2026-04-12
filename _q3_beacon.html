@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Q3 Beacon Diag</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{background:#0a0a2e;color:#0f0;font:14px monospace;padding:20px}
+.ok{color:#0f0}.fail{color:#f44}.warn{color:#fa0}
+#log{white-space:pre-wrap;line-height:1.6}</style>
+</head><body>
+<h2>Quest 3 Beacon Diagnostics</h2>
+<div id="log">Running...</div>
+<script>
+const R = {};
+const log = document.getElementById('log');
+let lines = [];
+function L(msg, cls='ok') { lines.push(`<span class="${cls}">${msg}</span>`); log.innerHTML = lines.join('\n'); }
+
+async function run() {
+  // 1. UA
+  R.ua = navigator.userAgent;
+  L('UA: ' + R.ua);
+  R.isQuest = /Quest/i.test(R.ua);
+  R.isOculus = /OculusBrowser/i.test(R.ua);
+  L('Quest: ' + R.isQuest + ' | OculusBrowser: ' + R.isOculus, R.isQuest ? 'ok' : 'warn');
+
+  // 2. WebXR
+  R.xr = !!navigator.xr;
+  if (R.xr) {
+    try { R.vrSupport = await navigator.xr.isSessionSupported('immersive-vr'); } catch(e) { R.vrSupport = 'error:'+e.message; }
+    try { R.arSupport = await navigator.xr.isSessionSupported('immersive-ar'); } catch(e) { R.arSupport = 'error:'+e.message; }
+  } else { R.vrSupport = false; R.arSupport = false; }
+  L('WebXR: ' + R.xr + ' | VR: ' + R.vrSupport + ' | AR: ' + R.arSupport, R.xr ? 'ok' : 'fail');
+
+  // 3. WebGL
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    R.webgl = !!gl;
+    if (gl) {
+      R.renderer = gl.getParameter(gl.RENDERER);
+      R.vendor = gl.getParameter(gl.VENDOR);
+      R.glVersion = gl.getParameter(gl.VERSION);
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      if (dbg) { R.gpuRenderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL); R.gpuVendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL); }
+    }
+  } catch(e) { R.webgl = false; R.webglErr = e.message; }
+  L('WebGL: ' + R.webgl + (R.gpuRenderer ? ' | GPU: ' + R.gpuRenderer : ''), R.webgl ? 'ok' : 'fail');
+
+  // 4. Screen
+  R.w = screen.width; R.h = screen.height; R.dpr = devicePixelRatio;
+  L('Screen: ' + R.w + 'x' + R.h + ' @' + R.dpr + 'x');
+
+  // 5. Memory
+  R.mem = navigator.deviceMemory || 'N/A';
+  R.cores = navigator.hardwareConcurrency || 'N/A';
+  L('Memory: ' + R.mem + 'GB | Cores: ' + R.cores);
+
+  // 6. CDN reachability
+  const cdnTests = [
+    ['unpkg/three', 'https://unpkg.com/three@0.178.0/build/three.module.js'],
+    ['aiotvr/jianzhen', 'https://aiotvr.xyz/quest/jianzhen.html'],
+    ['aiotvr/diag', 'https://aiotvr.xyz/quest/diag.html'],
+    ['localhost/index', 'http://localhost:8870/index.html'],
+  ];
+  R.cdn = {};
+  for (const [name, url] of cdnTests) {
+    const t0 = performance.now();
+    try {
+      const resp = await fetch(url, {method:'HEAD', mode:'no-cors', cache:'no-store'});
+      const ms = Math.round(performance.now() - t0);
+      R.cdn[name] = {ok: true, ms, status: resp.status || 'opaque'};
+      L('CDN ' + name + ': OK (' + ms + 'ms)', 'ok');
+    } catch(e) {
+      const ms = Math.round(performance.now() - t0);
+      R.cdn[name] = {ok: false, ms, err: e.message};
+      L('CDN ' + name + ': FAIL (' + e.message + ')', 'fail');
+    }
+  }
+
+  // 7. Three.js importmap test
+  try {
+    const m = await import('https://unpkg.com/three@0.178.0/build/three.module.js');
+    R.threeVer = m.REVISION;
+    L('Three.js import: OK (r' + R.threeVer + ')', 'ok');
+  } catch(e) {
+    R.threeVer = 'FAIL:' + e.message;
+    L('Three.js import: FAIL (' + e.message + ')', 'fail');
+  }
+
+  // 8. Gamepad/Controller
+  R.gamepads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean).length : 'N/A';
+  L('Gamepads: ' + R.gamepads);
+
+  // BEACON: encode results and send back via GET (shows in http.server logs)
+  L('\n--- Sending beacon ---', 'warn');
+  const payload = encodeURIComponent(JSON.stringify(R));
+  const beaconUrl = 'http://localhost:8871/_q3_report_' + Date.now() + '.json?d=' + payload;
+  try {
+    // This will 404 but the request URL with data will appear in server logs
+    await fetch(beaconUrl, {mode:'no-cors'}).catch(()=>{});
+    new Image().src = beaconUrl; // backup beacon
+    L('Beacon SENT to localhost:8870', 'ok');
+  } catch(e) {
+    L('Beacon failed: ' + e.message, 'fail');
+  }
+
+  // Also display full JSON on page
+  L('\n=== FULL RESULTS ===\n' + JSON.stringify(R, null, 2));
+}
+
+run().catch(e => L('FATAL: ' + e.message, 'fail'));
+</script>
+</body></html>

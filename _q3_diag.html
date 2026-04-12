@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quest 3 诊断</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a1a;color:#0f0;font:14px/1.6 monospace;padding:10px;overflow-y:auto}
+h1{color:#0ff;font-size:18px;margin-bottom:8px}
+.pass{color:#0f0}.fail{color:#f44}.warn{color:#ff0}.info{color:#88f}
+#log{white-space:pre-wrap;word-break:break-all}
+#summary{position:fixed;top:0;right:0;background:rgba(0,0,0,0.9);padding:8px 16px;font-size:16px;z-index:999}
+</style>
+</head><body>
+<h1>🔍 Quest 3 VR仙侠 全面诊断</h1>
+<div id="summary">运行中...</div>
+<div id="log"></div>
+<script>
+const log = document.getElementById('log');
+const summary = document.getElementById('summary');
+let pass=0, fail=0, warn=0, errors=[];
+
+function P(cls, msg) {
+  const d = document.createElement('div');
+  d.className = cls;
+  d.textContent = msg;
+  log.appendChild(d);
+  if (cls === 'pass') pass++;
+  if (cls === 'fail') { fail++; errors.push(msg); }
+  if (cls === 'warn') warn++;
+  summary.innerHTML = `<span class="pass">✅${pass}</span> <span class="fail">❌${fail}</span> <span class="warn">⚠️${warn}</span>`;
+}
+
+function check(name, ok) { P(ok ? 'pass' : 'fail', (ok ? '✅ ' : '❌ ') + name); return ok; }
+function info(msg) { P('info', '  ℹ ' + msg); }
+function section(name) { P('info', '\n══ ' + name + ' ══'); }
+
+async function run() {
+  // ===== PHASE 1: DEVICE =====
+  section('设备信息');
+  info('UA: ' + navigator.userAgent);
+  info('Screen: ' + screen.width + 'x' + screen.height + ' DPR=' + devicePixelRatio);
+  info('Memory: ' + (navigator.deviceMemory || '?') + 'GB');
+  info('Cores: ' + (navigator.hardwareConcurrency || '?'));
+  check('Quest/Oculus UA检测', /Quest|Oculus/i.test(navigator.userAgent));
+
+  // ===== PHASE 2: WebGL =====
+  section('WebGL能力');
+  const c = document.createElement('canvas');
+  const gl = c.getContext('webgl2') || c.getContext('webgl');
+  check('WebGL可用', !!gl);
+  if (gl) {
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg) {
+      info('GPU: ' + gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL));
+      info('Vendor: ' + gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL));
+    }
+    info('Version: ' + gl.getParameter(gl.VERSION));
+    info('MaxTextureSize: ' + gl.getParameter(gl.MAX_TEXTURE_SIZE));
+    info('MaxViewportDims: ' + gl.getParameter(gl.MAX_VIEWPORT_DIMS));
+    check('WebGL2', !!c.getContext('webgl2'));
+  }
+
+  // ===== PHASE 3: WebXR =====
+  section('WebXR支持');
+  check('navigator.xr存在', !!navigator.xr);
+  if (navigator.xr) {
+    try {
+      const immersive = await navigator.xr.isSessionSupported('immersive-vr');
+      check('immersive-vr支持', immersive);
+    } catch(e) { P('fail', '❌ immersive-vr检测失败: ' + e.message); }
+    try {
+      const inline = await navigator.xr.isSessionSupported('inline');
+      check('inline session支持', inline);
+    } catch(e) { P('warn', '⚠️ inline检测: ' + e.message); }
+  }
+
+  // ===== PHASE 4: CDN可达性 =====
+  section('CDN可达性');
+  const cdns = [
+    ['Three.js', 'https://unpkg.com/three@0.178.0/build/three.module.js'],
+    ['Three Addons', 'https://unpkg.com/three@0.178.0/examples/jsm/controls/OrbitControls.js'],
+    ['VRButton', 'https://unpkg.com/three@0.178.0/examples/jsm/webxr/VRButton.js'],
+    ['SparkJS', 'https://unpkg.com/@sparkjsdev/spark@0.1.10/dist/spark.module.js'],
+    ['WorldLabs CDN', 'https://cdn.marble.worldlabs.ai'],
+  ];
+  for (const [name, url] of cdns) {
+    const t0 = performance.now();
+    try {
+      const r = await fetch(url, { method: 'HEAD', mode: 'no-cors', signal: AbortSignal.timeout(8000) });
+      const ms = Math.round(performance.now() - t0);
+      check(name + ' (' + ms + 'ms)', true);
+    } catch(e) {
+      const ms = Math.round(performance.now() - t0);
+      P('fail', '❌ ' + name + ' 不可达 (' + ms + 'ms): ' + e.message);
+    }
+  }
+
+  // ===== PHASE 5: index.html 加载测试 =====
+  section('index.html 模块加载');
+  const iframe1 = document.createElement('iframe');
+  iframe1.style.cssText = 'width:1px;height:1px;position:absolute;left:-99px';
+  iframe1.src = '/index.html';
+  document.body.appendChild(iframe1);
+  
+  await new Promise(r => { iframe1.onload = r; setTimeout(r, 20000); });
+  // Wait for module to initialize
+  for (let i = 0; i < 40; i++) {
+    try {
+      if (iframe1.contentWindow && typeof iframe1.contentWindow._castSpell === 'function') break;
+    } catch(e) {}
+    await new Promise(r => setTimeout(r, 500));
+  }
+  
+  let idx_ok = false;
+  try {
+    const w = iframe1.contentWindow;
+    idx_ok = typeof w._castSpell === 'function';
+    check('index.html ES module加载', idx_ok);
+    if (idx_ok) {
+      check('cult对象', typeof w.cult === 'object');
+      check('state对象', typeof w.state === 'object');
+      check('_toggleFlight函数', typeof w._toggleFlight === 'function');
+      check('_toggleMeditation函数', typeof w._toggleMeditation === 'function');
+      check('REALMS数组', Array.isArray(w.REALMS));
+      info('cult.qi=' + w.cult?.qi + ' cult.maxQi=' + w.cult?.maxQi);
+      info('state.gestureMode=' + w.state?.gestureMode);
+      info('REALMS count=' + w.REALMS?.length);
+      
+      // Test spell system
+      const qi0 = w.cult.qi;
+      w._castSpell('fire');
+      const qi1 = w.cult.qi;
+      check('施法消耗灵力', qi1 < qi0);
+      info('灵力: ' + qi0 + ' → ' + qi1 + ' (消耗' + (qi0-qi1) + ')');
+      
+      // Test flight
+      w._toggleFlight();
+      check('飞行开启', w.cult.flying === true);
+      w._toggleFlight();
+      check('飞行关闭', w.cult.flying === false);
+      
+      // Test meditation
+      w._toggleMeditation();
+      check('打坐开启', w.cult.meditating === true);
+      w._toggleMeditation();
+      check('打坐关闭', w.cult.meditating === false);
+    }
+  } catch(e) { P('fail', '❌ index.html测试异常: ' + e.message); }
+
+  // ===== PHASE 6: xianxia_worldlabs.html 加载测试 =====
+  section('xianxia_worldlabs.html 模块加载');
+  const iframe2 = document.createElement('iframe');
+  iframe2.style.cssText = 'width:1px;height:1px;position:absolute;left:-99px';
+  iframe2.src = '/xianxia_worldlabs.html';
+  document.body.appendChild(iframe2);
+  
+  await new Promise(r => { iframe2.onload = r; setTimeout(r, 25000); });
+  for (let i = 0; i < 50; i++) {
+    try {
+      if (iframe2.contentWindow && typeof iframe2.contentWindow._castSpell === 'function') break;
+    } catch(e) {}
+    await new Promise(r => setTimeout(r, 500));
+  }
+  
+  try {
+    const w2 = iframe2.contentWindow;
+    const xia_ok = typeof w2._castSpell === 'function';
+    check('xianxia模块加载', xia_ok);
+    if (xia_ok) {
+      check('cult对象', typeof w2.cult === 'object');
+      check('state对象', typeof w2.state === 'object');
+      info('xianxia cult.qi=' + w2.cult?.qi);
+      
+      const xqi0 = w2.cult.qi;
+      w2._castSpell('fire');
+      check('xianxia施法', w2.cult.qi < xqi0);
+    }
+  } catch(e) { P('fail', '❌ xianxia测试异常: ' + e.message); }
+
+  // ===== PHASE 7: Audio =====
+  section('音频系统');
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    check('AudioContext创建', true);
+    info('sampleRate=' + ctx.sampleRate + ' state=' + ctx.state);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.01);
+    check('Oscillator创建+播放', true);
+    ctx.close();
+  } catch(e) { P('fail', '❌ Audio: ' + e.message); }
+
+  // ===== PHASE 8: Performance =====
+  section('性能指标');
+  const perf = performance.getEntriesByType('resource');
+  info('资源请求数: ' + perf.length);
+  const mem = performance.memory;
+  if (mem) {
+    info('JS堆: ' + Math.round(mem.usedJSHeapSize/1048576) + 'MB / ' + Math.round(mem.jsHeapSizeLimit/1048576) + 'MB');
+  }
+
+  // ===== SUMMARY =====
+  section('最终总结');
+  P(fail === 0 ? 'pass' : 'fail', 
+    `总计: ✅${pass} ❌${fail} ⚠️${warn}`);
+  if (errors.length > 0) {
+    P('fail', '失败项:');
+    errors.forEach(e => P('fail', '  → ' + e));
+  }
+  
+  summary.innerHTML = `<span class="pass">✅${pass}</span> <span class="fail">❌${fail}</span> <span class="warn">⚠️${warn}</span> <span class="info">完成</span>`;
+
+  // Report back to server
+  try {
+    await fetch('/diag_result', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ pass, fail, warn, errors, ua: navigator.userAgent, ts: Date.now() })
+    });
+  } catch(e) {}
+}
+
+run().catch(e => P('fail', '诊断崩溃: ' + e.message));
+</script>
+</body></html>

@@ -18,6 +18,7 @@
         color: #fff;
         font-family: "Microsoft YaHei", sans-serif;
         overflow: hidden;
+        touch-action: none;
       }
       #canvas-container {
         position: fixed;
@@ -526,14 +527,7 @@
         border: 1px solid rgba(0, 255, 136, 0.15);
         transition: opacity 2s;
       "
-    >
-      <b style="color: #00ff88">修仙操控</b><br />
-      🖱️ 鼠标环视 WASD移动<br />
-      1🔥火球 2❄️冰封 3⚡雷法 4⚔️剑气<br />
-      F 御剑飞行 M 打坐修炼<br />
-      Q 切阵 E 画质 5-9切场景<br />
-      Space↑ Shift↓ 🥽VR手势
-    </div>
+    ></div>
 
     <div id="cultivation-hud">
       <div id="realm-display">炼气一层</div>
@@ -986,6 +980,196 @@
         location.hostname === "127.0.0.1" ||
         location.hostname.startsWith("192.168.");
 
+      // ╔══════════════════════════════════════════════════════════════╗
+      // ║  道·感知 Sense — device capability detection                ║
+      // ╚══════════════════════════════════════════════════════════════╝
+      const Sense = (() => {
+        const ua = navigator.userAgent;
+        const mobile = IS_MOBILE;
+        const touch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+        const fine = matchMedia("(pointer:fine)").matches;
+        const gyro = "DeviceOrientationEvent" in window;
+        const hmd =
+          /Quest|Oculus|Pico|VIVE|Valve Index|Windows Mixed Reality/i.test(ua);
+        let hasGamepad = false;
+        window.addEventListener("gamepadconnected", () => (hasGamepad = true), {
+          once: true,
+        });
+        if (navigator.getGamepads) {
+          for (const p of navigator.getGamepads()) {
+            if (p) {
+              hasGamepad = true;
+              break;
+            }
+          }
+        }
+        const label =
+          (hmd ? "HMD" : mobile ? "Mobile" : "Desktop") +
+          (touch ? "+Touch" : "") +
+          (hasGamepad ? "+Gamepad" : "") +
+          (gyro && mobile ? "+Gyro" : "");
+        return { mobile, touch, fine, gyro, hmd, hasGamepad, label };
+      })();
+      console.log("道·感知:", Sense.label);
+
+      // ╔══════════════════════════════════════════════════════════════╗
+      // ║  道·输入 DaoInput — touch/gyro/gamepad universal input      ║
+      // ╚══════════════════════════════════════════════════════════════╝
+      const _touch = {
+        x: 0,
+        y: 0,
+        active: false,
+        startX: 0,
+        startY: 0,
+        startT: 0,
+        lastTap: 0,
+      };
+      if (Sense.touch) {
+        document.addEventListener(
+          "touchstart",
+          (e) => {
+            _touch.active = true;
+            _touch.x = e.touches[0].clientX;
+            _touch.y = e.touches[0].clientY;
+            _touch.startX = _touch.x;
+            _touch.startY = _touch.y;
+            _touch.startT = performance.now();
+            const now = performance.now();
+            if (now - _touch.lastTap < 350) window._daoIntent_cycleMode = true;
+            _touch.lastTap = now;
+          },
+          { passive: true },
+        );
+        document.addEventListener(
+          "touchmove",
+          (e) => {
+            if (e.touches.length > 0) {
+              _touch.x = e.touches[0].clientX;
+              _touch.y = e.touches[0].clientY;
+            }
+          },
+          { passive: true },
+        );
+        document.addEventListener(
+          "touchend",
+          (e) => {
+            if (e.touches.length === 0) _touch.active = false;
+            const dx = _touch.x - _touch.startX;
+            const dy = _touch.y - _touch.startY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 60 && performance.now() - _touch.startT < 500) {
+              const angle = Math.atan2(dy, dx);
+              if (angle > -0.7 && angle < 0.7) window._daoIntent_spell = "fire";
+              else if (angle > 0.7 && angle < 2.4)
+                window._daoIntent_spell = "ice";
+              else if (angle < -0.7 && angle > -2.4)
+                window._daoIntent_spell = "lightning";
+              else window._daoIntent_spell = "sword";
+            }
+          },
+          { passive: true },
+        );
+      }
+
+      // Gyroscope input (phones/tablets — tilt to aim)
+      const _gyro = { alpha: 0, beta: 0, gamma: 0, on: false };
+      if (Sense.gyro && Sense.mobile && !Sense.hmd) {
+        const listen = () =>
+          window.addEventListener(
+            "deviceorientation",
+            (e) => {
+              _gyro.alpha = e.alpha || 0;
+              _gyro.beta = e.beta || 0;
+              _gyro.gamma = e.gamma || 0;
+              _gyro.on = true;
+            },
+            { passive: true },
+          );
+        if (
+          typeof DeviceOrientationEvent !== "undefined" &&
+          DeviceOrientationEvent.requestPermission
+        ) {
+          const req = () =>
+            DeviceOrientationEvent.requestPermission()
+              .then((r) => {
+                if (r === "granted") listen();
+              })
+              .catch(() => {});
+          document.addEventListener("click", req, { once: true });
+          document.addEventListener("touchstart", req, { once: true });
+        } else {
+          listen();
+        }
+      }
+
+      // Gamepad input (PS5, Xbox, Switch Pro, generic)
+      const _gp = {
+        on: false,
+        axes: [0, 0, 0, 0],
+        prev: new Array(17).fill(false),
+      };
+      function pollGamepad() {
+        if (!Sense.hasGamepad) return;
+        const pads = navigator.getGamepads();
+        for (const pad of pads) {
+          if (!pad) continue;
+          _gp.on = true;
+          for (let a = 0; a < Math.min(pad.axes.length, 4); a++)
+            _gp.axes[a] = pad.axes[a];
+          for (let b = 0; b < Math.min(pad.buttons.length, 17); b++) {
+            const pressed = pad.buttons[b].pressed;
+            if (pressed && !_gp.prev[b]) {
+              if (b === 0) window._daoIntent_spell = "fire";
+              if (b === 1) window._daoIntent_cycleMode = true;
+              if (b === 2) window._daoIntent_spell = "sword";
+              if (b === 3) window._daoIntent_toggleFlight = true;
+              if (b === 4) window._daoIntent_spell = "ice";
+              if (b === 5) window._daoIntent_spell = "lightning";
+              if (b === 8) window._daoIntent_toggleMed = true;
+              if (b === 9) window._daoIntent_cycleMode = true;
+            }
+            _gp.prev[b] = pressed;
+          }
+          break;
+        }
+      }
+
+      // Unified intent drain (called each frame)
+      function drainDaoIntents() {
+        pollGamepad();
+        if (window._daoIntent_cycleMode) {
+          window._daoIntent_cycleMode = false;
+          cycleMode();
+        }
+        if (window._daoIntent_spell) {
+          const sp = window._daoIntent_spell;
+          window._daoIntent_spell = null;
+          castSpell(sp);
+        }
+        if (window._daoIntent_toggleFlight) {
+          window._daoIntent_toggleFlight = false;
+          toggleFlight();
+        }
+        if (window._daoIntent_toggleMed) {
+          window._daoIntent_toggleMed = false;
+          toggleMeditation();
+        }
+        // Gyroscope → target position (mobile flat mode)
+        if (_gyro.on && !state.isVR && controls) {
+          const gx = Math.max(-1, Math.min(1, _gyro.gamma / 45)) * 3;
+          const gy = Math.max(-1, Math.min(1, (_gyro.beta - 45) / 45)) * 3;
+          state.targetPosition.x += (gx - state.targetPosition.x) * 0.08;
+          state.targetPosition.y += (1.2 - gy - state.targetPosition.y) * 0.08;
+        }
+        // Gamepad right stick → target position
+        if (_gp.on && controls) {
+          if (Math.abs(_gp.axes[2]) > 0.1 || Math.abs(_gp.axes[3]) > 0.1) {
+            state.targetPosition.x += _gp.axes[2] * 0.08;
+            state.targetPosition.z += _gp.axes[3] * 0.08;
+          }
+        }
+      }
+
       const modeColors = {
         LOTUS: "#ffaa44",
         DRAGON: "#00ff88",
@@ -1050,23 +1234,6 @@
           size: 0.05,
         },
       };
-      const REALM_NAMES = [
-        "云端仙宫",
-        "浮空宫殿",
-        "夜幕秘境",
-        "巨石河道",
-        "雪山落日",
-        "天界果园",
-        "山谷花海",
-        "金殿夕照",
-        "紫藤仙径",
-        "幻境魔塔",
-        "仙灵花园",
-        "灵溪幽谷",
-        "蓬莱仙岛",
-        "昆仑道场",
-        "鸿蒙天界",
-      ];
       // Scene Chinese names for gallery display
       const SCENE_CN = {
         "17f76543-a07f-4447-adb0-38a529b9e672": "☁️ 云端仙宫",
@@ -1502,7 +1669,6 @@
       const _xUpVec = new THREE.Vector3(0, 1, 0);
       const _xCtrlPos = new THREE.Vector3();
       const _xSpellOrigin = new THREE.Vector3();
-      let _frameCount = 0;
       let adaptiveSwordCount = CFG.swordCount;
 
       function updateSwords(time, delta) {
@@ -1966,36 +2132,36 @@
 
       // ===== AUDIO SYSTEM =====
       let audioCtx = null,
-        masterGain = null;
+        masterGain = null,
+        swordDrone = null,
+        drone2Node = null;
       function initAudio() {
         if (audioCtx) return;
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         masterGain = audioCtx.createGain();
         masterGain.gain.value = 0.15;
         masterGain.connect(audioCtx.destination);
-        const drone = audioCtx.createOscillator();
-        drone.type = "sine";
-        drone.frequency.value = 82;
-        window._xDrone = drone;
+        swordDrone = audioCtx.createOscillator();
+        swordDrone.type = "sine";
+        swordDrone.frequency.value = 82;
         const dg = audioCtx.createGain();
         dg.gain.value = 0.06;
         const df = audioCtx.createBiquadFilter();
         df.type = "lowpass";
         df.frequency.value = 200;
-        drone.connect(df);
+        swordDrone.connect(df);
         df.connect(dg);
         dg.connect(masterGain);
-        drone.start();
-        // Second harmonic (matches index.html dual-drone)
-        const drone2 = audioCtx.createOscillator();
-        drone2.type = "sine";
-        drone2.frequency.value = 123;
-        window._xDrone2 = drone2;
+        swordDrone.start();
+        // Second harmonic
+        drone2Node = audioCtx.createOscillator();
+        drone2Node.type = "sine";
+        drone2Node.frequency.value = 123;
         const d2g = audioCtx.createGain();
         d2g.gain.value = 0.04;
-        drone2.connect(d2g);
+        drone2Node.connect(d2g);
         d2g.connect(masterGain);
-        drone2.start();
+        drone2Node.start();
       }
       document.addEventListener("click", initAudio, { once: true });
       document.addEventListener("touchstart", initAudio, { once: true });
@@ -2007,13 +2173,11 @@
         DAGENG: [55, 82],
       };
       function updateDroneMode(mode) {
-        if (!audioCtx) return;
-        if (!window._xDrone) return;
+        if (!swordDrone || !drone2Node) return;
         const f = DRONE_FREQS[mode] || DRONE_FREQS.LOTUS;
         const t = audioCtx.currentTime;
-        window._xDrone.frequency.linearRampToValueAtTime(f[0], t + 0.5);
-        if (window._xDrone2)
-          window._xDrone2.frequency.linearRampToValueAtTime(f[1], t + 0.5);
+        swordDrone.frequency.linearRampToValueAtTime(f[0], t + 0.5);
+        drone2Node.frequency.linearRampToValueAtTime(f[1], t + 0.5);
       }
       let _qiWarnPlayed = false;
       function playQiWarning() {
@@ -2291,6 +2455,132 @@
       window.state = state;
       window.scene = scene;
 
+      // ===== VR TELEPORT SYSTEM =====
+      const teleportRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.3, 0.35, 32),
+        new THREE.MeshBasicMaterial({
+          color: 0x00ffaa,
+          transparent: true,
+          opacity: 0,
+          side: THREE.DoubleSide,
+        }),
+      );
+      teleportRing.rotation.x = -Math.PI / 2;
+      teleportRing.position.y = 0.02;
+      scene.add(teleportRing);
+
+      const teleportArcGeo = new THREE.BufferGeometry();
+      teleportArcGeo.setAttribute(
+        "position",
+        new THREE.BufferAttribute(new Float32Array(30 * 3), 3),
+      );
+      const teleportArc = new THREE.Line(
+        teleportArcGeo,
+        new THREE.LineBasicMaterial({
+          color: 0x00ffaa,
+          transparent: true,
+          opacity: 0,
+        }),
+      );
+      scene.add(teleportArc);
+
+      let teleportTarget = null;
+      let teleportAiming = false;
+      const _tpDir = new THREE.Vector3();
+      const _tpOrigin = new THREE.Vector3();
+      const _tpP = new THREE.Vector3();
+      const _tpV = new THREE.Vector3();
+      const _tpStep = new THREE.Vector3();
+      const _tpCamPos = new THREE.Vector3();
+      const _tpOffset = new THREE.Vector3();
+
+      function updateTeleport(session, delta) {
+        if (!session) return;
+        teleportAiming = false;
+        teleportTarget = null;
+
+        for (const source of session.inputSources) {
+          if (!source.gamepad || source.handedness !== "left") continue;
+          const gp = source.gamepad;
+          if (gp.axes.length < 4) continue;
+
+          const fwd = -gp.axes[3];
+          if (fwd < 0.5) continue;
+
+          teleportAiming = true;
+          const ctrl = controller1;
+          if (!ctrl) continue;
+
+          _tpDir.set(0, 0, -1).applyQuaternion(ctrl.quaternion);
+          ctrl.getWorldPosition(_tpOrigin);
+          _tpV.copy(_tpDir).multiplyScalar(5);
+          const gravity = -9.8;
+          _tpP.copy(_tpOrigin);
+          const dt2 = 0.05;
+
+          const arr = teleportArc.geometry.attributes.position.array;
+          let arcLen = 0;
+          for (let step = 0; step < 30; step++) {
+            arr[arcLen * 3] = _tpP.x;
+            arr[arcLen * 3 + 1] = _tpP.y;
+            arr[arcLen * 3 + 2] = _tpP.z;
+            arcLen++;
+            _tpV.y += gravity * dt2;
+            _tpStep.copy(_tpV).multiplyScalar(dt2);
+            _tpP.add(_tpStep);
+            if (_tpP.y <= 0.02) {
+              teleportTarget = _tpP;
+              arr[arcLen * 3] = _tpP.x;
+              arr[arcLen * 3 + 1] = 0;
+              arr[arcLen * 3 + 2] = _tpP.z;
+              arcLen++;
+              break;
+            }
+          }
+          for (let i = arcLen; i < 30; i++) {
+            arr[i * 3] = arr[i * 3 + 1] = arr[i * 3 + 2] = 0;
+          }
+          teleportArc.geometry.attributes.position.needsUpdate = true;
+          teleportArc.geometry.setDrawRange(0, arcLen);
+          break;
+        }
+
+        teleportArc.material.opacity = teleportAiming ? 0.6 : 0;
+        if (teleportTarget) {
+          teleportRing.position.set(teleportTarget.x, 0.02, teleportTarget.z);
+          teleportRing.material.opacity = 0.5;
+          teleportRing.rotation.z += delta * 2;
+        } else {
+          teleportRing.material.opacity = 0;
+        }
+
+        if (teleportTarget && teleportAiming) {
+          for (const source of session.inputSources) {
+            if (source.handedness !== "left" || !source.gamepad) continue;
+            if (source.gamepad.buttons[0]?.pressed) {
+              camera.getWorldPosition(_tpCamPos);
+              _tpOffset.set(
+                teleportTarget.x - _tpCamPos.x,
+                0,
+                teleportTarget.z - _tpCamPos.z,
+              );
+              const baseRef = renderer.xr.getReferenceSpace();
+              if (baseRef) {
+                const teleportXR = new XRRigidTransform(
+                  { x: -_tpOffset.x, y: 0, z: -_tpOffset.z, w: 1 },
+                  { x: 0, y: 0, z: 0, w: 1 },
+                );
+                const newRef = baseRef.getOffsetReferenceSpace(teleportXR);
+                renderer.xr.setReferenceSpace(newRef);
+              }
+              teleportTarget = null;
+              triggerHaptic(controller1);
+              break;
+            }
+          }
+        }
+      }
+
       // ===== WEBXR SETUP =====
       let controller1, controller2;
       let xrHands = null;
@@ -2465,14 +2755,61 @@
 
         window._flatKeys = keys;
 
-        // Show controls hint, fade after 4s
+        // Mouse/touch pointer for sword target (compatible with OrbitControls)
+        const _ptrVec = new THREE.Vector3();
+        const _ptrWorldPos = new THREE.Vector3();
+        const onPointer = (e) => {
+          const rect = renderer.domElement.getBoundingClientRect();
+          const cx = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+          const cy = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
+          const ndcX = ((cx - rect.left) / rect.width) * 2 - 1;
+          const ndcY = -((cy - rect.top) / rect.height) * 2 + 1;
+          _ptrVec.set(ndcX, ndcY, 0.5).unproject(camera);
+          _ptrVec.sub(camera.position).normalize();
+          const dist = (1.2 - camera.position.y) / _ptrVec.y || 3;
+          _ptrWorldPos
+            .copy(camera.position)
+            .addScaledVector(_ptrVec, Math.abs(dist));
+          state.targetPosition.copy(_ptrWorldPos);
+        };
+        renderer.domElement.addEventListener("pointermove", onPointer);
+        renderer.domElement.addEventListener(
+          "touchmove",
+          (e) => {
+            e.preventDefault();
+            onPointer(e);
+          },
+          { passive: false },
+        );
+
+        // Show controls hint — device-adaptive
         const hint = document.getElementById("controls-hint");
+        if (Sense.touch && !Sense.fine) {
+          hint.innerHTML =
+            '<b style="color:#00ff88">触控修仙</b><br/>' +
+            "拖动=移动剑阵 双击=切换阵型<br/>" +
+            "右划🔥火球 上划⚡雷法 下划❄️冰封 左划⚔️剑气<br/>" +
+            (Sense.gyro ? "倾斜手机=瞄准方向<br/>" : "") +
+            "5-9/0 切换场景";
+        } else if (_gp.on) {
+          hint.innerHTML =
+            '<b style="color:#00ff88">手柄修仙</b><br/>' +
+            "左摇杆=移动 右摇杆=瞄准<br/>" +
+            "A🔥火球 X⚔️剑气 LB❄️冰封 RB⚡雷法<br/>" +
+            "Y=飞行 Select=打坐 B/Start=切阵";
+        } else {
+          hint.innerHTML =
+            '<b style="color:#00ff88">修仙操控</b><br/>WASD移动 Space↑ Shift↓<br/>' +
+            "1🔥火球 2❄️冰封 3⚡雷法 4⚔️剑气<br/>" +
+            "F御剑飞行 M打坐修炼 Q切阵 E切画质<br/>" +
+            "5~' 切换仙界场景 双击=切阵";
+        }
         hint.style.display = "block";
         hint.style.opacity = "0.85";
         setTimeout(() => {
           hint.style.opacity = "0";
           setTimeout(() => (hint.style.display = "none"), 2000);
-        }, 4000);
+        }, 6000);
 
         // Double-click to switch mode
         renderer.domElement.addEventListener("dblclick", cycleMode);
@@ -2545,21 +2882,25 @@
         _xRightVec.crossVectors(forward, _xUpVec);
         const right = _xRightVec;
 
-        if (keys["w"]) {
-          camera.position.addScaledVector(forward, speed);
-          controls.target.addScaledVector(forward, speed);
+        let fwdAmt = 0,
+          rightAmt = 0;
+        if (keys["w"]) fwdAmt += 1;
+        if (keys["s"]) fwdAmt -= 1;
+        if (keys["a"]) rightAmt -= 1;
+        if (keys["d"]) rightAmt += 1;
+        // Gamepad left stick (blended seamlessly)
+        if (_gp.on) {
+          if (Math.abs(_gp.axes[0]) > 0.15) rightAmt += _gp.axes[0];
+          if (Math.abs(_gp.axes[1]) > 0.15) fwdAmt -= _gp.axes[1];
+          controls.autoRotate = false;
         }
-        if (keys["s"]) {
-          camera.position.addScaledVector(forward, -speed);
-          controls.target.addScaledVector(forward, -speed);
+        if (Math.abs(fwdAmt) > 0.01) {
+          camera.position.addScaledVector(forward, speed * fwdAmt);
+          controls.target.addScaledVector(forward, speed * fwdAmt);
         }
-        if (keys["a"]) {
-          camera.position.addScaledVector(right, -speed);
-          controls.target.addScaledVector(right, -speed);
-        }
-        if (keys["d"]) {
-          camera.position.addScaledVector(right, speed);
-          controls.target.addScaledVector(right, speed);
+        if (Math.abs(rightAmt) > 0.01) {
+          camera.position.addScaledVector(right, speed * rightAmt);
+          controls.target.addScaledVector(right, speed * rightAmt);
         }
         if (keys[" "]) {
           camera.position.y += speed;
@@ -2767,6 +3108,9 @@
         const delta = time - lastTime;
         lastTime = time;
 
+        // 道·输入: drain all universal input intents (touch/gyro/gamepad)
+        drainDaoIntents();
+
         // localFrame compensation — VR only (道·静: 致虚极 守静笃)
         // SparkJS hack for Quest 3/Vision Pro teleport discontinuities.
         // In flat mode, OrbitControls moves camera smoothly; triggering this
@@ -2841,6 +3185,7 @@
               }
             }
           }
+          updateTeleport(session, delta);
           updateVRHUD();
         } else {
           if (cult.flying) updateFlight(delta);
@@ -2867,7 +3212,7 @@
               adaptiveSwordCount + 3,
             );
           if (_hudFpsEl)
-            _hudFpsEl.textContent = `${adaptiveSwordCount}剑 ${fps}FPS`;
+            _hudFpsEl.textContent = `${adaptiveSwordCount}剑 ${fps}FPS | ${Sense.label}`;
           // 道·适应: dynamic quality — 唯变所适 适应一切
           const _qCooldownOk = performance.now() - _lastQualitySwitch > 15000;
           if (
