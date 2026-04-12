@@ -1407,8 +1407,6 @@
         false,
       );
 
-      // SparkJS renderer — required for proper 3DGS stereo VR rendering
-      const spark = new SparkRenderer({ renderer, maxStdDev: Math.sqrt(5) });
       const localFrame = new THREE.Group();
       let lastCameraPos = new THREE.Vector3(0, 0, 0);
 
@@ -1424,9 +1422,11 @@
       );
       camera.position.set(0, 1.6, 3);
 
-      // localFrame houses SparkRenderer + camera for floating-point precision in large splat worlds
+      // 道·架构: SparkRenderer at scene root (SparkJS standard pattern)
+      // localFrame for camera precision in large worlds; spark at root for correct SplatMesh discovery
+      const spark = new SparkRenderer({ renderer, maxStdDev: Math.sqrt(5) });
+      scene.add(spark);
       scene.add(localFrame);
-      localFrame.add(spark);
       localFrame.add(camera);
 
       let controls = null;
