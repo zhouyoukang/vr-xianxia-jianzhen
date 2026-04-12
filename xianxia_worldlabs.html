@@ -750,6 +750,7 @@
       import { OrbitControls } from "three/addons/controls/OrbitControls.js";
       import {
         SparkRenderer,
+        SplatMesh,
         VRButton,
         XrHands,
         FpsMovement,
@@ -1440,19 +1441,11 @@
       scene.add(fillLight);
 
       // ===== SPARKJS SPLAT LOADING =====
-      let SplatMesh = null;
-
-      async function loadSparkJS() {
-        try {
-          const spark = await import("@sparkjsdev/spark");
-          SplatMesh = spark.SplatMesh;
-          console.log("✅ SparkJS loaded (unpkg)");
-          return true;
-        } catch (e) {
-          console.error("❌ SparkJS load failed:", e);
-          return false;
-        }
-      }
+      // 道·本: SplatMesh is imported statically above — no fragile dynamic import needed
+      console.log(
+        "✅ SparkJS SplatMesh:",
+        typeof SplatMesh === "function" ? "ready" : "MISSING",
+      );
 
       let _loadingWorld = false;
       async function loadWorld(worldId, quality = "low") {
@@ -1475,32 +1468,39 @@
           if (_hudSceneEl)
             _hudSceneEl.textContent = SCENE_CN[worldId] || `🌍 ${world.name}`;
 
-          // Remove previous splat
+          // 道·净: Defensive cleanup of previous splat
           if (state.currentSplat) {
-            scene.remove(state.currentSplat);
-            if (state.currentSplat.dispose) state.currentSplat.dispose();
+            try {
+              state.currentSplat.removeFromParent();
+            } catch (_) {}
+            try {
+              if (state.currentSplat.dispose) state.currentSplat.dispose();
+            } catch (_) {}
             state.currentSplat = null;
           }
-          // 道·净: Reset localFrame to origin on scene switch
+          // Reset localFrame to origin on scene switch
           localFrame.position.set(0, 0, 0);
           lastCameraPos.set(0, 0, 0);
           // Clean up previous fallback panorama textures
           if (scene.background && scene.background.isTexture) {
-            scene.background.dispose();
+            try {
+              scene.background.dispose();
+            } catch (_) {}
             scene.background = null;
           }
           if (scene.environment && scene.environment.isTexture) {
-            scene.environment.dispose();
+            try {
+              scene.environment.dispose();
+            } catch (_) {}
             scene.environment = null;
           }
 
           setLoadProgress(30);
           showLoading(true, "加载Gaussian Splat...");
 
-          // Get SPZ URL by quality — fallback chain: requested → low
-          const qualityMap = { low: "low", medium: "medium", high: "high" };
+          // Get SPZ URL by quality — fallback chain: requested → low → high
           let actualQuality = quality;
-          let spzUrl = world.spz[qualityMap[quality]];
+          let spzUrl = world.spz[quality];
           if (!spzUrl && quality !== "low") {
             spzUrl = world.spz.low;
             actualQuality = "low";
@@ -1514,77 +1514,91 @@
             throw new Error("No SPZ URL available for this world");
           }
 
-          // CDN access strategy: always try direct CDN (CORS-friendly, works on HTTPS + most localhost)
           console.log("🌐 SPZ direct CDN:", spzUrl.substring(0, 80));
 
-          // Try loading via SparkJS
-          if (SplatMesh) {
+          // 道·本: Apply world transform values (used for both SplatMesh path and fallback)
+          const scale = world.scale || 1.0;
+          const groundOff = (world.ground_offset || 0) * scale;
+
+          // 道·境: Scene-adaptive atmosphere (apply before loading for immediate visual feedback)
+          const atmo = SCENE_ATMOSPHERE[worldId];
+          if (atmo) {
+            scene.background = new THREE.Color(atmo.bg);
+            scene.fog = new THREE.Fog(
+              atmo.fog,
+              atmo.fogNear || 60,
+              atmo.fogFar || 400,
+            );
+            mainLight.intensity = atmo.light || 1.2;
+          } else {
+            scene.background = new THREE.Color("#050a1e");
+            scene.fog = new THREE.Fog("#050a1e", 80, 500);
+          }
+
+          // 道·归位: Camera at capture viewpoint — 万物各归其位
+          const eyeY = groundOff || 1.6;
+          const pullback = Math.max(0.5, scale * 0.8);
+          const lookDist = Math.max(2, scale * 2);
+          state.playerPos.set(0, eyeY, pullback);
+          camera.position.set(0, eyeY, pullback);
+          camera.fov = IS_MOBILE ? 65 : 60;
+          camera.near = Math.max(0.01, scale * 0.005);
+          camera.far = Math.max(1000, eyeY * 5, scale * 100);
+          camera.updateProjectionMatrix();
+          if (controls) {
+            controls.target.set(0, eyeY * 0.92, -lookDist);
+            controls.minDistance = 0;
+            controls.maxDistance = Math.max(100, scale * 30);
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.25;
+            controls.update();
+          }
+          console.log(
+            `🎯 道·归位: eyeY=${eyeY.toFixed(1)} scale=${scale.toFixed(2)} groundOff=${groundOff.toFixed(1)} pullback=${pullback.toFixed(1)} lookDist=${lookDist.toFixed(1)}`,
+          );
+
+          // 道·生: Load 3D Gaussian Splat via SparkJS SplatMesh
+          if (typeof SplatMesh === "function") {
             try {
-              const splat = new SplatMesh({ url: spzUrl });
+              setLoadProgress(40);
+              showLoading(true, "下载 Gaussian Splat...");
 
-              // Apply world scale — metric_scale_factor converts splat to meters
-              const scale = world.scale || 1.0;
+              const splat = await new Promise((resolve, reject) => {
+                const _timeout = setTimeout(
+                  () => reject(new Error("SPZ load timeout (60s)")),
+                  60000,
+                );
+                try {
+                  const mesh = new SplatMesh({
+                    url: spzUrl,
+                    onLoad: (loadedMesh) => {
+                      clearTimeout(_timeout);
+                      console.log("✅ SPZ onLoad fired:", world.name);
+                      resolve(loadedMesh);
+                    },
+                  });
+                  // Safety: if onLoad never fires, the timeout will reject
+                  // But also handle immediate constructor errors
+                  mesh._spzUrl = spzUrl; // tag for debug
+                } catch (constructErr) {
+                  clearTimeout(_timeout);
+                  reject(constructErr);
+                }
+              });
+
+              // Apply world scale & position
               splat.scale.setScalar(scale);
-
-              // Position splat so ground plane aligns with Y=0
-              // ground_plane_offset = distance from scene center to ground (in local coords)
-              // After scale, ground is at local_y * scale below origin → lift scene UP
-              const groundOff = (world.ground_offset || 0) * scale;
               splat.position.y = groundOff;
-
               // 道·正位: WorldLabs SPZ uses THREE.js convention (Y-up) — no rotation needed
               splat.quaternion.identity();
 
-              scene.add(splat);
+              // 道·架构: Add to localFrame (same parent as SparkRenderer & camera)
+              // This ensures splat coordinates stay near SparkRenderer's origin for float16 precision
+              localFrame.add(splat);
               state.currentSplat = splat;
 
-              setLoadProgress(90);
-              showLoading(true, "场景就绪!");
-
-              // 道·归位: Camera at capture viewpoint with natural pullback — 万物各归其位
-              // groundOff = capture eye height above Y=0; camera belongs there
-              // pullback proportional to scale → same perceived distance in all scenes
-              const eyeY = groundOff || 1.6;
-              const pullback = Math.max(0.5, scale * 0.8);
-              const lookDist = Math.max(2, scale * 2);
-              state.playerPos.set(0, eyeY, pullback);
-              camera.position.set(0, eyeY, pullback);
-              camera.fov = IS_MOBILE ? 65 : 60;
-              camera.near = Math.max(0.01, scale * 0.005);
-              camera.far = Math.max(1000, eyeY * 5, scale * 100);
-              camera.updateProjectionMatrix();
-              if (controls) {
-                // Look forward into the scene, slightly below eye level
-                controls.target.set(0, eyeY * 0.92, -lookDist);
-                controls.minDistance = 0;
-                controls.maxDistance = Math.max(100, scale * 30);
-                controls.autoRotate = true;
-                controls.autoRotateSpeed = 0.25;
-                controls.update();
-              }
-              console.log(
-                `🎯 道·归位: eyeY=${eyeY.toFixed(1)} scale=${scale.toFixed(2)} groundOff=${groundOff.toFixed(1)} pullback=${pullback.toFixed(1)} lookDist=${lookDist.toFixed(1)}`,
-              );
-              // 道·境: Scene-adaptive atmosphere
-              const atmo = SCENE_ATMOSPHERE[worldId];
-              if (atmo) {
-                scene.background = new THREE.Color(atmo.bg);
-                scene.fog = new THREE.Fog(
-                  atmo.fog,
-                  atmo.fogNear || 60,
-                  atmo.fogFar || 400,
-                );
-                mainLight.intensity = atmo.light || 1.2;
-              } else {
-                scene.background = new THREE.Color("#050a1e");
-                scene.fog.near = 80;
-                scene.fog.far = 500;
-              }
-
-              setTimeout(() => {
-                setLoadProgress(100);
-                showLoading(false);
-              }, 500);
+              setLoadProgress(100);
+              showLoading(false);
 
               console.log(
                 `✅ World loaded: ${world.name} (${actualQuality}${actualQuality !== quality ? ", requested " + quality : ""})`,
@@ -1594,24 +1608,34 @@
               updateQualityHUD();
               return true;
             } catch (splatErr) {
-              console.warn("SparkJS SplatMesh failed:", splatErr);
+              console.warn("⚠️ SparkJS SplatMesh failed:", splatErr);
+              // Fall through to panorama fallback
             }
+          } else {
+            console.warn("⚠️ SplatMesh not available — using fallback");
           }
 
           // Fallback: show panorama/thumbnail as skybox
           if (world.thumbnail) {
             showLoading(true, "降级: 加载全景图...");
+            setLoadProgress(60);
             const loader = new THREE.TextureLoader();
             loader.setCrossOrigin("anonymous");
-            const tex = await new Promise((resolve, reject) => {
-              loader.load(world.thumbnail, resolve, undefined, reject);
-            });
-            tex.mapping = THREE.EquirectangularReflectionMapping;
-            scene.background = tex;
-            scene.environment = tex;
+            try {
+              const tex = await new Promise((resolve, reject) => {
+                loader.load(world.thumbnail, resolve, undefined, reject);
+              });
+              tex.mapping = THREE.EquirectangularReflectionMapping;
+              scene.background = tex;
+              scene.environment = tex;
+            } catch (texErr) {
+              console.warn("⚠️ Thumbnail fallback also failed:", texErr);
+            }
             setLoadProgress(100);
             showLoading(false);
             console.log(`⚠️ Fallback panorama loaded: ${world.name}`);
+            updateSceneSwitcher();
+            updateQualityHUD();
             return true;
           }
 
@@ -3014,11 +3038,6 @@
       async function init() {
         showLoading(true, "初始化修仙界...");
 
-        // Load SparkJS
-        const sparkOk = await loadSparkJS();
-        if (!sparkOk)
-          console.warn("⚠️ SparkJS unavailable — will use fallback rendering");
-
         // Use embedded scenes (standalone) or fetch from Hub API (localhost dev)
         if (EMBEDDED_SCENES.length > 0) {
           state.scenes = EMBEDDED_SCENES;
@@ -3062,28 +3081,9 @@
           state.currentWorldId = state.scenes[0].id;
         }
 
-        // Setup XR
-        setupXRInputs();
-
-        // SparkJS VR Button — optimized for 3DGS VR rendering
-        const vrButtonEl = VRButton.createButton(renderer, {
-          optionalFeatures: [
-            "local-floor",
-            "bounded-floor",
-            "hand-tracking",
-            "layers",
-          ],
-        });
-        if (vrButtonEl) {
-          vrButtonEl.style.display = "none";
-          document.body.appendChild(vrButtonEl);
-        }
-
+        // 道·要: Set up FLAT MODE entry FIRST — this MUST succeed even if XR setup crashes
         const vrBtn = document.getElementById("enterVR");
         const flatBtn = document.getElementById("enterFlat");
-
-        // Check VR support
-        checkVRSupport(vrBtn, vrButtonEl);
 
         flatBtn.onclick = () => {
           document.getElementById("overlay").classList.add("hidden");
@@ -3094,6 +3094,34 @@
           document.getElementById("cultivation-hud").style.display = "flex";
           loadWorld(state.currentWorldId, state.quality);
         };
+
+        // 道·柔: XR setup is non-fatal — many browsers lack VR support
+        let vrButtonEl = null;
+        try {
+          setupXRInputs();
+        } catch (xrErr) {
+          console.warn("⚠️ XR input setup failed (non-fatal):", xrErr);
+        }
+
+        try {
+          vrButtonEl = VRButton.createButton(renderer, {
+            optionalFeatures: [
+              "local-floor",
+              "bounded-floor",
+              "hand-tracking",
+              "layers",
+            ],
+          });
+          if (vrButtonEl) {
+            vrButtonEl.style.display = "none";
+            document.body.appendChild(vrButtonEl);
+          }
+        } catch (vrBtnErr) {
+          console.warn("⚠️ VRButton creation failed (non-fatal):", vrBtnErr);
+        }
+
+        // Check VR support (async, non-blocking)
+        checkVRSupport(vrBtn, vrButtonEl);
 
         showLoading(false);
 
@@ -3117,6 +3145,11 @@
           scene.fog.near = 15;
           scene.fog.far = 80;
         });
+
+        console.log(
+          "🏯 init() complete — SplatMesh:",
+          typeof SplatMesh === "function" ? "✅" : "❌",
+        );
       }
 
       async function checkVRSupport(btn, vrButtonEl) {
@@ -3129,7 +3162,7 @@
                 btn.disabled = false;
                 btn.onclick = () => {
                   initAudio();
-                  vrButtonEl.click();
+                  if (vrButtonEl) vrButtonEl.click();
                   document.getElementById("overlay").classList.add("hidden");
                   document.getElementById("scene-switcher").style.display =
                     "flex";
@@ -3313,7 +3346,14 @@
       });
 
       // Boot
-      init();
+      init().catch((e) => {
+        console.error("🚨 init() fatal error:", e);
+        const el = document.getElementById("loading-text");
+        if (el) {
+          el.textContent = "初始化失败: " + e.message;
+          el.style.display = "block";
+        }
+      });
     </script>
   </body>
 </html>
