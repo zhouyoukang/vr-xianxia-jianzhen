@@ -1082,6 +1082,93 @@
         "9b66855a-e073-4249-825c-a3d065f8b35b": "🌙 暗夜神殿",
         "d2413257-1eac-46f4-82a3-5a5fab222282": "🏘️ 中世纪仙街",
       };
+      // 道·境: Per-scene atmosphere — 万物各得其所
+      const SCENE_ATMOSPHERE = {
+        "17f76543-a07f-4447-adb0-38a529b9e672": {
+          bg: "#b8cfdf",
+          fog: "#b8cfdf",
+          light: 1.5,
+          fogNear: 40,
+          fogFar: 250,
+        },
+        "660f680d-c31f-4463-8285-b61ad406739e": {
+          bg: "#8899bb",
+          fog: "#8899bb",
+          light: 1.3,
+          fogNear: 200,
+          fogFar: 1500,
+        },
+        "b0029c5e-e7c4-49ee-9649-561f84402f18": {
+          bg: "#3a4a5a",
+          fog: "#3a4a5a",
+          light: 1.0,
+          fogNear: 30,
+          fogFar: 200,
+        },
+        "dc15921b-3a10-4be3-b325-fba5c308560b": {
+          bg: "#8899aa",
+          fog: "#99aabb",
+          light: 1.6,
+          fogNear: 50,
+          fogFar: 300,
+        },
+        "91f34581-0c18-491c-bd2b-9b5078e73df6": {
+          bg: "#6699aa",
+          fog: "#6699aa",
+          light: 1.5,
+          fogNear: 40,
+          fogFar: 250,
+        },
+        "234ae08a-7dee-491b-86f3-f9014113c2f2": {
+          bg: "#7a9a7a",
+          fog: "#7a9a7a",
+          light: 1.4,
+          fogNear: 40,
+          fogFar: 280,
+        },
+        "97583c3d-19d6-4246-86ed-a8d4c9201eab": {
+          bg: "#cc8844",
+          fog: "#aa6633",
+          light: 2.0,
+          fogNear: 20,
+          fogFar: 150,
+        },
+        "3883f06a-ccdb-439a-bef7-ce452d69bad3": {
+          bg: "#8866aa",
+          fog: "#8866aa",
+          light: 1.2,
+          fogNear: 25,
+          fogFar: 180,
+        },
+        "99f7179f-a6c8-49e1-906f-3c4eaa364797": {
+          bg: "#2a0800",
+          fog: "#1a0600",
+          light: 0.8,
+          fogNear: 15,
+          fogFar: 120,
+        },
+        "a6561515-cbb0-4a2d-84a1-d0f4e63e027c": {
+          bg: "#1a1208",
+          fog: "#1a1208",
+          light: 0.7,
+          fogNear: 10,
+          fogFar: 100,
+        },
+        "9b66855a-e073-4249-825c-a3d065f8b35b": {
+          bg: "#080816",
+          fog: "#080816",
+          light: 0.5,
+          fogNear: 15,
+          fogFar: 150,
+        },
+        "d2413257-1eac-46f4-82a3-5a5fab222282": {
+          bg: "#445566",
+          fog: "#445566",
+          light: 1.1,
+          fogNear: 25,
+          fogFar: 180,
+        },
+      };
       const cult = {
         qi: 100,
         maxQi: 100,
@@ -1252,22 +1339,38 @@
               setLoadProgress(90);
               showLoading(true, "场景就绪!");
 
-              // Position camera INSIDE the splat at eye height above ground
+              // 道·观: Scene-aware camera framing + cinematic auto-orbit
               const eyeY = 1.6;
-              state.playerPos.set(0, eyeY, 0);
-              camera.position.set(0, eyeY, 0);
+              const pullback = Math.max(0.3, scale * 0.15);
+              state.playerPos.set(0, eyeY, pullback);
+              camera.position.set(0, eyeY, pullback);
+              camera.fov = IS_MOBILE ? 70 : 75;
               camera.near = 0.01;
               camera.far = 2000;
               camera.updateProjectionMatrix();
               if (controls) {
-                controls.target.set(0, eyeY, -2);
+                controls.target.set(0, eyeY * 0.85, -(pullback + 1));
                 controls.minDistance = 0;
                 controls.maxDistance = 1000;
+                controls.autoRotate = true;
+                controls.autoRotateSpeed = 0.4;
                 controls.update();
               }
-              // Push fog far back so splat is fully visible
-              scene.fog.near = 80;
-              scene.fog.far = 500;
+              // 道·境: Scene-adaptive atmosphere
+              const atmo = SCENE_ATMOSPHERE[worldId];
+              if (atmo) {
+                scene.background = new THREE.Color(atmo.bg);
+                scene.fog = new THREE.Fog(
+                  atmo.fog,
+                  atmo.fogNear || 60,
+                  atmo.fogFar || 400,
+                );
+                mainLight.intensity = atmo.light || 1.2;
+              } else {
+                scene.background = new THREE.Color("#050a1e");
+                scene.fog.near = 80;
+                scene.fog.far = 500;
+              }
 
               setTimeout(() => {
                 setLoadProgress(100);
@@ -2335,6 +2438,10 @@
         controls.minDistance = 0.5;
         controls.maxDistance = 50;
         controls.target.set(0, 1.2, 0);
+        // 道·观: stop cinematic auto-orbit on user interaction
+        renderer.domElement.addEventListener("pointerdown", () => {
+          if (controls) controls.autoRotate = false;
+        });
 
         // WASD movement
         const keys = {};
@@ -2407,6 +2514,16 @@
       function updateFlatMovement(delta) {
         const keys = window._flatKeys;
         if (!keys || !controls) return;
+        if (
+          keys["w"] ||
+          keys["s"] ||
+          keys["a"] ||
+          keys["d"] ||
+          keys[" "] ||
+          keys["shift"]
+        ) {
+          controls.autoRotate = false;
+        }
         const speed = 3 * delta;
         camera.getWorldDirection(_xFwdVec);
         _xFwdVec.y = 0;
@@ -2524,7 +2641,7 @@
           const card = document.createElement("div");
           card.className = "scene-card" + (i === 0 ? " active" : "");
           card.innerHTML = `${s.thumbnail ? `<img src="${s.thumbnail}" alt="${s.name}" loading="lazy">` : '<div style="background:#1a1a2e;height:100%;display:flex;align-items:center;justify-content:center">🌍</div>'}
-      <div class="label">${SCENE_CN[s.id] || s.name || "Unknown"}</div>`;
+            <div class="label">${SCENE_CN[s.id] || s.name || "Unknown"}</div>`;
           card.onclick = () => {
             document
               .querySelectorAll(".scene-card")
@@ -2628,7 +2745,9 @@
       const clock = new THREE.Clock();
       let lastTime = 0,
         fpsCount = 0,
-        fpsLast = performance.now();
+        fpsLast = performance.now(),
+        _stableFpsHigh = 0,
+        _lastQualitySwitch = 0;
 
       renderer.setAnimationLoop((timestamp, frame) => {
         const time = clock.getElapsedTime();
@@ -2736,12 +2855,37 @@
             );
           if (_hudFpsEl)
             _hudFpsEl.textContent = `${adaptiveSwordCount}剑 ${fps}FPS`;
-          // 道·适应: auto-degrade gaussian quality when FPS catastrophically low
-          if (fps < 8 && state.quality !== "low" && !_loadingWorld) {
-            console.warn("⚠️ 道·适应: FPS=" + fps + ", 自动降级画质");
+          // 道·适应: dynamic quality — 唯变所适 适应一切
+          const _qCooldownOk = performance.now() - _lastQualitySwitch > 15000;
+          if (
+            fps < 8 &&
+            state.quality !== "low" &&
+            !_loadingWorld &&
+            _qCooldownOk
+          ) {
+            console.warn("⚠️ 道·退: FPS=" + fps + ", 自动降级画质");
             state.quality = "low";
+            _lastQualitySwitch = performance.now();
+            _stableFpsHigh = 0;
             updateQualityHUD();
             loadWorld(state.currentWorldId, "low");
+          } else if (
+            fps > 55 &&
+            state.quality === "low" &&
+            !_loadingWorld &&
+            _qCooldownOk
+          ) {
+            _stableFpsHigh++;
+            if (_stableFpsHigh >= 4) {
+              console.log("🔺 道·进: FPS=" + fps + " stable, 升级至medium");
+              state.quality = "medium";
+              _lastQualitySwitch = performance.now();
+              _stableFpsHigh = 0;
+              updateQualityHUD();
+              loadWorld(state.currentWorldId, "medium");
+            }
+          } else if (fps <= 55) {
+            _stableFpsHigh = 0;
           }
         }
 
