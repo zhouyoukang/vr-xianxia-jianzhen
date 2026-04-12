@@ -6,6 +6,14 @@
       name="viewport"
       content="width=device-width,initial-scale=1.0,user-scalable=no"
     />
+    <meta
+      http-equiv="Permissions-Policy"
+      content="xr-spatial-tracking=(*), gyroscope=(*), accelerometer=(*), magnetometer=(*), camera=(*), microphone=(*), gamepad=(*), fullscreen=(*)"
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>"
+    />
     <title>修仙界 · WorldLabs × VR仙侠</title>
     <style>
       * {
@@ -506,6 +514,15 @@
       <div class="hud-pill" id="hud-fps">0 FPS</div>
       <div class="hud-pill" id="hud-mode">🌸 莲花现世</div>
       <div class="hud-pill" id="hud-quality">●○○</div>
+      <div
+        class="hud-pill"
+        id="hud-fs"
+        onclick="toggleFS()"
+        style="cursor: pointer"
+        title="全屏"
+      >
+        ⛶
+      </div>
     </div>
 
     <div id="scene-switcher" style="display: none"></div>
@@ -1373,6 +1390,21 @@
       document
         .getElementById("canvas-container")
         .appendChild(renderer.domElement);
+      renderer.domElement.addEventListener(
+        "webglcontextlost",
+        function (e) {
+          e.preventDefault();
+          console.warn("道·WebGL context lost — awaiting restore");
+        },
+        false,
+      );
+      renderer.domElement.addEventListener(
+        "webglcontextrestored",
+        function () {
+          console.log("道·WebGL context restored");
+        },
+        false,
+      );
 
       // SparkJS renderer — required for proper 3DGS stereo VR rendering
       const spark = new SparkRenderer({ renderer, maxStdDev: Math.sqrt(5) });
@@ -2446,6 +2478,26 @@
       const _hudSceneEl = document.getElementById("hud-scene");
       const _hudModeEl = document.getElementById("hud-mode");
       const _hudFpsEl = document.getElementById("hud-fps");
+
+      function toggleFS() {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          var el = document.documentElement;
+          (
+            el.requestFullscreen ||
+            el.webkitRequestFullscreen ||
+            el.msRequestFullscreen ||
+            function () {}
+          ).call(el);
+        } else {
+          (
+            document.exitFullscreen ||
+            document.webkitExitFullscreen ||
+            document.msExitFullscreen ||
+            function () {}
+          ).call(document);
+        }
+      }
+      window.toggleFS = toggleFS;
 
       // Expose to window for HTML onclick + testability
       window._castSpell = castSpell;

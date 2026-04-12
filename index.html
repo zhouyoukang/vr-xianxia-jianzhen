@@ -6,6 +6,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
+    <meta
+      http-equiv="Permissions-Policy"
+      content="xr-spatial-tracking=(*), gyroscope=(*), accelerometer=(*), magnetometer=(*), camera=(*), microphone=(*), gamepad=(*), fullscreen=(*)"
+    />
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>"
@@ -429,6 +433,26 @@
         pointer-events: none;
         display: none;
       }
+      #fs-toggle {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        z-index: 60;
+        padding: 6px 12px;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid rgba(0, 255, 136, 0.3);
+        border-radius: 20px;
+        color: #00ff88;
+        font-size: 16px;
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+        transition: all 0.3s;
+        display: none;
+      }
+      #fs-toggle:hover {
+        background: rgba(0, 255, 136, 0.1);
+        border-color: #00ff88;
+      }
       #cam-toggle {
         position: fixed;
         bottom: 100px;
@@ -590,6 +614,7 @@
     <canvas id="cam-canvas"></canvas>
     <div id="cam-gesture-label"></div>
     <button id="cam-toggle">📷 摄像头手势</button>
+    <button id="fs-toggle" onclick="toggleFS()" title="全屏 (F11)">⛶</button>
     <div id="controls-hint"></div>
 
     <!-- ╔═══════════════════════════════════════════════════════════╗
@@ -1138,6 +1163,21 @@
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.2;
       document.body.appendChild(renderer.domElement);
+      renderer.domElement.addEventListener(
+        "webglcontextlost",
+        function (e) {
+          e.preventDefault();
+          console.warn("道·WebGL context lost — awaiting restore");
+        },
+        false,
+      );
+      renderer.domElement.addEventListener(
+        "webglcontextrestored",
+        function () {
+          console.log("道·WebGL context restored");
+        },
+        false,
+      );
 
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#030810");
@@ -2163,6 +2203,26 @@
         p.geometry.attributes.position.needsUpdate = true;
         p.material.opacity = 0.3 + Math.sin(time * 0.5) * 0.1;
       }
+
+      function toggleFS() {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          var el = document.documentElement;
+          (
+            el.requestFullscreen ||
+            el.webkitRequestFullscreen ||
+            el.msRequestFullscreen ||
+            function () {}
+          ).call(el);
+        } else {
+          (
+            document.exitFullscreen ||
+            document.webkitExitFullscreen ||
+            document.msExitFullscreen ||
+            function () {}
+          ).call(document);
+        }
+      }
+      window.toggleFS = toggleFS;
 
       window._castSpell = castSpell;
       window._toggleFlight = toggleFlight;
@@ -3423,6 +3483,11 @@
           camBtn.onclick = () => DaoEye.toggle();
           DaoEye.init(); // pre-load model in background
         }
+
+        // Show fullscreen button (not needed in VR)
+        var fsBtn = document.getElementById("fs-toggle");
+        if (fsBtn && document.documentElement.requestFullscreen)
+          fsBtn.style.display = "block";
 
         // Show cultivation HUD + device-adaptive controls hint
         document.getElementById("cultivation-hud").style.display = "flex";
