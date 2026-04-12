@@ -2142,7 +2142,7 @@
 
       // ===== ATMOSPHERIC SPIRITUAL PARTICLES =====
       function createAtmosphericParticles() {
-        const N = 200;
+        const N = CFG.atmosCount;
         const geo = new THREE.BufferGeometry();
         const pos = new Float32Array(N * 3),
           col = new Float32Array(N * 3),
@@ -2258,7 +2258,7 @@
 
       // ===== STARFIELD =====
       {
-        const count = 1500;
+        const count = CFG.starCount;
         const pos = new Float32Array(count * 3);
         const col = new Float32Array(count * 3);
         for (let i = 0; i < count; i++) {
@@ -2293,7 +2293,7 @@
       // ===== SPIRIT PARTICLES (enhanced) =====
       let spiritParticles;
       {
-        const count = 250;
+        const count = CFG.spiritCount;
         const pos = new Float32Array(count * 3);
         for (let i = 0; i < count; i++) {
           pos[i * 3] = (Math.random() - 0.5) * 16;
@@ -2317,7 +2317,7 @@
       }
 
       // ===== SWORD TRAIL PARTICLES =====
-      const TRAIL_COUNT = 800;
+      const TRAIL_COUNT = CFG.trailCount;
       const trailPositions = new Float32Array(TRAIL_COUNT * 3);
       const trailGeo = new THREE.BufferGeometry();
       trailGeo.setAttribute(
@@ -2537,6 +2537,8 @@
       const _tpStep = new THREE.Vector3();
       const _tpCamPos = new THREE.Vector3();
       const _tpOffset = new THREE.Vector3();
+      // Pre-allocate identity quaternion for XRRigidTransform (avoid per-frame GC)
+      const _xrIdentityQuat = { x: 0, y: 0, z: 0, w: 1 };
 
       function updateTeleport(session, delta) {
         if (!session) return;
@@ -2616,7 +2618,7 @@
               if (baseRef) {
                 const teleportXR = new XRRigidTransform(
                   { x: -_tpOffset.x, y: 0, z: -_tpOffset.z, w: 1 },
-                  { x: 0, y: 0, z: 0, w: 1 },
+                  _xrIdentityQuat,
                 );
                 const newRef = baseRef.getOffsetReferenceSpace(teleportXR);
                 renderer.xr.setReferenceSpace(newRef);
@@ -2892,10 +2894,15 @@
       const _handGlowPos = new THREE.Vector3();
       const _ctrlWorldPos = new THREE.Vector3();
 
+      function _jointCount(joints) {
+        let n = 0;
+        for (const k in joints) n++;
+        return n;
+      }
       function detectXRHandGesture(hand) {
         const dominated = hand;
         const joints = dominated.joints;
-        if (!joints || Object.keys(joints).length < 20) return null;
+        if (!joints || _jointCount(joints) < 20) return null;
 
         const getJointPos = (name, out) => {
           const j = joints[name];
@@ -3804,7 +3811,7 @@
           let activeHandIdx = -1;
           for (let hi = 0; hi < 2; hi++) {
             const hand = hi === 0 ? hand1 : hand2;
-            if (hand && hand.joints && Object.keys(hand.joints).length > 15) {
+            if (hand && hand.joints && _jointCount(hand.joints) > 15) {
               result = detectXRHandGesture(hand);
               if (result) {
                 activeHandIdx = hi;
@@ -3851,7 +3858,7 @@
                         if (baseRef) {
                           const off = new XRRigidTransform(
                             { x: -dx, y: 0, z: -dy, w: 1 },
-                            { x: 0, y: 0, z: 0, w: 1 },
+                            _xrIdentityQuat,
                           );
                           renderer.xr.setReferenceSpace(
                             baseRef.getOffsetReferenceSpace(off),
@@ -3917,10 +3924,11 @@
         // Animate ground circle + clouds
         groundCircle.rotation.z = time * 0.1;
         groundCircle2.rotation.z = -time * 0.08;
-        cloudsGroup.children.forEach((c, i) => {
-          c.position.x += Math.sin(time * 0.05 + i) * 0.003;
-          c.position.y += Math.cos(time * 0.03 + i) * 0.001;
-        });
+        for (let ci = 0; ci < cloudsGroup.children.length; ci++) {
+          const c = cloudsGroup.children[ci];
+          c.position.x += Math.sin(time * 0.05 + ci) * 0.003;
+          c.position.y += Math.cos(time * 0.03 + ci) * 0.001;
+        }
 
         // T3-1: Direct uniform updates (no scene.traverse)
         if (window._skyUniforms) window._skyUniforms.uTime.value = time;
@@ -3955,13 +3963,14 @@
         }
 
         // Animate cultivation energy orbs
-        orbGroup.children.forEach((orb) => {
+        for (let oi = 0; oi < orbGroup.children.length; oi++) {
+          const orb = orbGroup.children[oi];
           orb.position.y =
             orb.userData.baseY +
             Math.sin(time * orb.userData.speed + orb.userData.phase) * 0.3;
           orb.material.opacity =
             0.3 + Math.sin(time * 1.5 + orb.userData.phase) * 0.2;
-        });
+        }
 
         // 道·目: Camera hand gesture tracking (flat devices)
         if (DaoEye.active && flatMode && !state.isVR) {
