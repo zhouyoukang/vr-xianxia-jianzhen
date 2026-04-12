@@ -768,6 +768,25 @@
           return true;
         return window.innerWidth < 768;
       })();
+      // 道·感知: GPU能力自适应 — 唯变所适
+      const _GPU_QUALITY = (() => {
+        try {
+          if (IS_MOBILE) return "low";
+          const c = document.createElement("canvas");
+          const gl = c.getContext("webgl2") || c.getContext("webgl");
+          if (!gl) return "low";
+          const ext = gl.getExtension("WEBGL_debug_renderer_info");
+          if (!ext) return "low";
+          const gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+          if (
+            /RTX|RX\s[6-9]|Radeon\s[6-9]|Apple M[2-9]|Adreno 7[4-9]/i.test(gpu)
+          )
+            return "medium";
+          return "low";
+        } catch (e) {
+          return "low";
+        }
+      })();
       const CFG = {
         swordCount: IS_MOBILE ? 40 : 120,
         trailLength: IS_MOBILE ? 8 : 20,
@@ -790,7 +809,7 @@
         currentWorldId: null,
         currentSplat: null,
         scenes: [],
-        quality: "medium", // medium=500k — Quest 3 Adreno 740 handles this well, much better visual
+        quality: _GPU_QUALITY, // 道·感知: auto-detect GPU → low(100k) or medium(500k)
         playerPos: new THREE.Vector3(0, 0, 0),
         playerVelocity: new THREE.Vector3(),
       };
@@ -1088,7 +1107,10 @@
         powerPreference: "high-performance",
       });
       renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2),
+        Math.min(
+          window.devicePixelRatio,
+          IS_MOBILE ? 1.0 : _GPU_QUALITY === "low" ? 1.5 : 2,
+        ),
       );
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
@@ -2613,11 +2635,15 @@
         const delta = time - lastTime;
         lastTime = time;
 
-        // localFrame compensation — essential for floating-point precision in large splat scenes
-        if (lastCameraPos.distanceTo(camera.position) > 0.5) {
+        // localFrame compensation — VR only (道·静: 致虚极 守静笃)
+        // SparkJS hack for Quest 3/Vision Pro teleport discontinuities.
+        // In flat mode, OrbitControls moves camera smoothly; triggering this
+        // every 0.5 units forces full gaussian re-sort (500k) per frame → 1 FPS.
+        // 反者道之动: the "fix" was the disease. Disable in flat mode.
+        if (state.isVR && lastCameraPos.distanceTo(camera.position) > 0.5) {
           localFrame.position.copy(camera.position).multiplyScalar(-1);
+          lastCameraPos.copy(camera.position);
         }
-        lastCameraPos.copy(camera.position);
 
         // XR input
         if (state.isVR && frame) {
@@ -2710,6 +2736,13 @@
             );
           if (_hudFpsEl)
             _hudFpsEl.textContent = `${adaptiveSwordCount}剑 ${fps}FPS`;
+          // 道·适应: auto-degrade gaussian quality when FPS catastrophically low
+          if (fps < 8 && state.quality !== "low" && !_loadingWorld) {
+            console.warn("⚠️ 道·适应: FPS=" + fps + ", 自动降级画质");
+            state.quality = "low";
+            updateQualityHUD();
+            loadWorld(state.currentWorldId, "low");
+          }
         }
 
         renderer.render(scene, camera);
