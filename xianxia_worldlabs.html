@@ -1587,9 +1587,9 @@
               splat.position.y = groundOff;
               splat.quaternion.identity();
 
-              // 道·架构: Add to localFrame IMMEDIATELY (same parent as SparkRenderer & camera)
-              // SparkRenderer will auto-detect and process the SplatMesh during render loop
-              localFrame.add(splat);
+              // 道·架构: Add to scene root (matches SparkJS standard pattern)
+              // SparkRenderer auto-discovers SplatMesh objects during scene traversal
+              scene.add(splat);
               state.currentSplat = splat;
 
               console.log(
