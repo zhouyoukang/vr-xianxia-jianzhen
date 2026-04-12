@@ -1,0 +1,188 @@
+{
+  "scenes": [
+    {
+      "id": "17f76543-a07f-4447-adb0-38a529b9e672",
+      "name": "Ancient Immortal Palace in Clouds",
+      "tags": [
+        "curated",
+        "exterior",
+        "fantasy"
+      ],
+      "prompt": "The scene is an ancient Chinese immortal palace, rendered in a highly detailed, fantastical style, evoking a sense of ethereal grandeur and mystical serenity. The overall tone is majestic and otherworldly, with elements that suggest divine power and timeless beauty. The palace complex is perched atop towering, mist-shrouded mountains, with intricate architectural details carved from jade and shimmering gold. Grand pavilions with sweeping, multi-tiered roofs, adorned with mythical beast sculptures, dominate the landscape. Delicate bridges, seemingly woven from clouds, connect various sections of the palace, spanning deep chasms where waterfalls cascade into unseen depths. Lush, vibrant gardens with glowing flora and ancient, gnarled trees surround the structures, their leaves shimmering with an inner light. Ornate archways and gates, guarded by stone dragons, mark the entrances to sacred courtyards. The air itself appears to shimmer with spiritual energy, and distant peaks are crowned with glowing pagodas. The main palace structure, a magnificent edifice of white jade and gold, stands centrally, its numerous roofs ascending towards the heavens. Smaller, equally ornate pavilions are situated on adjacent mountain ledges, connected by the delicate cloud bridges. The gardens are meticulously arranged around the palace buildings, with glowing flowers and trees interspersed among winding pathways. Stone dragons are positioned at the main gates, facing outward as guardians. The waterfalls originate from the higher mountain peaks, flowing down into the chasms below the bridges. ",
+      "thumbnail": "https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/81014abb_image_prompt_sanitized.png",
+      "spz": {
+        "low": "https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/d8e4a067-2547-4fbd-b348-51fc5c44778c_dust_100k.spz",
+        "medium": "https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/b0150f15-ebb2-4550-8c89-bfe765340d53_ceramic_500k.spz",
+        "high": "https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/17dbdd2d-3c47-4a6f-8e0c-256d33e24cc7_ceramic.spz"
+      },
+      "collider_mesh": null,
+      "panorama": null,
+      "mpi": "https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/0d8db25e-c029-467f-907c-0bbe056f0b5a_dust_mpi",
+      "scale": 1.3594965934753418,
+      "ground_offset": 1.3616328239440918,
+      "owner": "veronicasissi",
+      "model": "Marble 0.1-plus"
+    },
+    {
+      "id": "660f680d-c31f-4463-8285-b61ad406739e",
+      "name": "Floating Asian Palace Complex",
+      "tags": [
+        "curated",
+        "exterior",
+        "fantasy"
+      ],
+      "prompt": "The scene is a breathtaking fantasy landscape, captured in a vibrant and cinematic painting style, evoking a sense of ancient grandeur and ethereal beauty. The overall tone is majestic and serene, with a heavenly atmosphere permeating the floating structures and clear skies. The central feature is a magnificent, multi-tiered palace, characterized by its traditional East Asian architecture with dark, sweeping roofs, intricate golden details, and rich red accents; this palace is situated atop a vast, elevated white marble platform. This platform extends forward into a grand circular plaza, enclosed by a low white balustrade, which itself is surrounded by tranquil, turquoise waters that cascade over unseen edges, forming waterfalls into the clouds below. Elegant white stone bridges arch over the water, connecting the central plaza to smaller, equally ornate buildings that dot the landscape on other floating islands. Cranes soar gracefully through the bright, cloud-filled sky, adding to the mythical quality of the setting. The sun, a warm and radiant orb, casts a golden light across the scene, highlighting the architectural details and the gentle ripples on the water's surface. On the opposite side of the central palace and plaza, similar floating islands with additional traditional structures extend into the distance, suggesting a vast, interconnected aerial city. These distant islands are partially veiled by soft clouds, reinforcing the impression of a heavenly realm. ",
+      "thumbnail": "https://cdn.marble.worldlabs.ai/660f680d-c31f-4463-8285-b61ad406739e/9b25dd11_image_prompt_sanitized.png",
+      "spz": {
+        "low": "https://cdn.marble.worldlabs.ai/660f680d-c31f-4463-8285-b61ad406739e/41a57d07-6ace-4f65-8a7e-5e9289db6b92_dust_100k.spz",
+        "medium": "https://cdn.marble.worldlabs.ai/660f680d-c31f-4463-8285-b61ad406739e/53fc72c4-4ac6-448e-80f0-57ac4a751e9b_ceramic_500k.spz",
+        "high": "https://cdn.marble.worldlabs.ai/660f680d-c31f-4463-8285-b61ad406739e/fb7c8a27-e224-40e6-8863-4f5acb78c68c_ceramic.spz"
+      },
+      "collider_mesh": null,
+      "panorama": null,
+      "mpi": "https://cdn.marble.worldlabs.ai/660f680d-c31f-4463-8285-b61ad406739e/62ab76b4-96e9-4c9c-80ea-20027e7876d9_dust_mpi",
+      "scale": 9.168230056762695,
+      "ground_offset": 15.512419700622559,
+      "owner": "xsf",
+      "model": "Marble 0.1-plus"
+    },
+    {
+      "id": "9b66855a-e073-4249-825c-a3d065f8b35b",
+      "name": "Hidden Temple Gate at Night",
+      "tags": [
+        "curated",
+        "exterior",
+        "fantasy"
+      ],
+      "prompt": "The scene is a cinematic representation of an ancient temple’s hidden rear gate, enveloped by a dense forest under the cover of night. The overall tone is mysterious and awe-inspiring, with dramatic lighting accentuating the architectural details. The hidden rear gate is intricately carved from stone, displaying elaborate patterns and symbols that hint at a forgotten civilization. Stone steps lead up to the gate, illuminated by glowing torches strategically placed on either side, casting warm, flickering light onto the weathered masonry. The ground leading up to the steps is paved with large, irregularly shaped stone slabs, worn smooth by time and covered in places with creeping vegetation. The forest surrounding the temple gate is thick with ancient trees, their dark canopies almost entirely obscuring the night sky, creating a sense of isolation and deep wilderness. The foliage around the gate is lush, consisting of various ferns and low-lying shrubs that thrive in the shadows. To the immediate left and right of the gate, massive, rough-hewn stone walls rise, appearing to be part of a larger temple structure that extends far into the unseen areas of the forest. The air is still, and a soft, ethereal glow emanates from the torchlight, highlighting the textures of the stone and the rich greens of the surrounding plants. ",
+      "thumbnail": "https://cdn.marble.worldlabs.ai/9b66855a-e073-4249-825c-a3d065f8b35b/75efd212_image_prompt_sanitized.png",
+      "spz": {
+        "low": "https://cdn.marble.worldlabs.ai/9b66855a-e073-4249-825c-a3d065f8b35b/df22b916-0a6e-43e4-832c-8d28fbd71c72_dust_100k.spz",
+        "medium": "https://cdn.marble.worldlabs.ai/9b66855a-e073-4249-825c-a3d065f8b35b/a8913a26-864d-4c4d-ac4e-7dffb4b06c2d_ceramic_500k.spz",
+        "high": "https://cdn.marble.worldlabs.ai/9b66855a-e073-4249-825c-a3d065f8b35b/0c534cc7-8dc9-4656-8362-3ef3b4bc2591_ceramic.spz"
+      },
+      "collider_mesh": null,
+      "panorama": null,
+      "mpi": "https://cdn.marble.worldlabs.ai/9b66855a-e073-4249-825c-a3d065f8b35b/03df45fb-e8eb-4508-a7c1-3959ea49c605_dust_mpi",
+      "scale": 1.3869708776474,
+      "ground_offset": 0.8935790657997131,
+      "owner": "kkdninja",
+      "model": "Marble 0.1-plus"
+    },
+    {
+      "id": "b0029c5e-e7c4-49ee-9649-561f84402f18",
+      "name": "Ancient Sentinels Guard River Passage",
+      "tags": [
+        "curated",
+        "exterior",
+        "fantasy"
+      ],
+      "prompt": "The scene is a breathtaking natural vista, featuring colossal ancient statues carved into towering cliffs, rendered in a cinematic style with an epic and awe-inspiring tone. The overall atmosphere is one of grandeur and timelessness, with the rugged landscape and monumental figures conveying a sense of profound history and quiet power. The river, a wide expanse of turquoise water, flows through a narrow gorge, flanked by immense, jagged rock formations. On either side of the waterway, massive, weather-worn statues rise directly from the rock face, depicting regal figures with helmed or crowned heads and flowing garments, their arms raised in a gesture of greeting or warning. These colossal guardians mark the entrance to a significant passage. The rock formations extend far beyond the visible frame, forming a continuous, formidable wall of natural stone that stretches into the distant horizons on both sides of the river. The sky above is a blend of pale blue and soft, diffused clouds, indicating either dawn or dusk, casting a gentle, even light across the entire landscape. The river itself appears deep and calm, its surface occasionally disturbed by gentle ripples, suggesting a steady current. The base of the statues merges seamlessly with the cliff face, appearing to be an integral part of the mountain. The natural stone of the cliffs exhibits varied textures, from smooth, eroded surfaces near the water to rough, craggy outcrops higher up. ",
+      "thumbnail": "https://cdn.marble.worldlabs.ai/b0029c5e-e7c4-49ee-9649-561f84402f18/281425bb_image_prompt_sanitized.png",
+      "spz": {
+        "low": "https://cdn.marble.worldlabs.ai/b0029c5e-e7c4-49ee-9649-561f84402f18/79f7f553-5c53-4f28-819d-ef319826024a_dust_100k.spz",
+        "medium": "https://cdn.marble.worldlabs.ai/b0029c5e-e7c4-49ee-9649-561f84402f18/9d2b50b7-209b-424d-b5fb-3a5817da25c1_ceramic_500k.spz",
+        "high": "https://cdn.marble.worldlabs.ai/b0029c5e-e7c4-49ee-9649-561f84402f18/c83e489d-69b0-48cd-9db5-8f829ff7cfdf_ceramic.spz"
+      },
+      "collider_mesh": null,
+      "panorama": null,
+      "mpi": "https://cdn.marble.worldlabs.ai/b0029c5e-e7c4-49ee-9649-561f84402f18/09479dc4-f228-47b6-8ab0-7c0ae5a1918b_dust_mpi",
+      "scale": 0.8075656890869141,
+      "ground_offset": 0.8214216232299805,
+      "owner": "teomank58",
+      "model": "Marble 0.1-plus"
+    },
+    {
+      "id": "dc15921b-3a10-4be3-b325-fba5c308560b",
+      "name": "Winter Mountain Lake Sunset",
+      "tags": [
+        "curated",
+        "exterior",
+        "realism"
+      ],
+      "prompt": "The scene is a breathtaking panoramic view of a snowy mountain landscape at sunset, rendered in a hyperrealistic style with a serene and majestic tone. The crisp, clean air and vast expanse of snow-covered terrain evoke a sense of peaceful solitude. The landscape unfurls with gently rolling hills blanketed in pristine white snow, extending into the distance where taller, craggy peaks rise against the vibrant sky. The ground throughout the entire scene is covered with fresh snow, with subtle undulations and drifts formed by the natural terrain. A tranquil alpine lake, partially frozen, reflects the warm hues of the setting sun, casting an ethereal glow across the water's surface. Evergreen trees, primarily pines, dot the slopes, their dark green foliage providing a striking contrast against the white snow. Numerous animal tracks traverse the snow, indicating the presence of wildlife moving across the quiet landscape. The sky above is a canvas of soft blues and oranges, with delicate cirrus clouds streaking across, fanning out in intricate patterns. Patches of exposed rock and darker earth are visible where the snow has receded or is thinner, adding textural variety to the scene. ",
+      "thumbnail": "https://cdn.marble.worldlabs.ai/dc15921b-3a10-4be3-b325-fba5c308560b/89c56884_image_prompt_sanitized.png",
+      "spz": {
+        "low": "https://cdn.marble.worldlabs.ai/dc15921b-3a10-4be3-b325-fba5c308560b/9b3c619f-2219-40cd-b4ad-ec9758e44248_dust_100k.spz",
+        "medium": "https://cdn.marble.worldlabs.ai/dc15921b-3a10-4be3-b325-fba5c308560b/33bcaa92-9c83-4546-a428-9272bfe11ffb_ceramic_500k.spz",
+        "high": "https://cdn.marble.worldlabs.ai/dc15921b-3a10-4be3-b325-fba5c308560b/3799b970-5685-4902-89df-d2719e3fe58a_ceramic.spz"
+      },
+      "collider_mesh": null,
+      "panorama": null,
+      "mpi": "https://cdn.marble.worldlabs.ai/dc15921b-3a10-4be3-b325-fba5c308560b/3a0dfd45-1eb6-4f95-8490-a59812429569_dust_mpi",
+      "scale": 1.3763021230697632,
+      "ground_offset": 0.9059236645698547,
+      "owner": "liborc",
+      "model": "Marble 0.1-plus"
+    },
+    {
+      "id": "91f34581-0c18-491c-bd2b-9b5078e73df6",
+      "name": "Celestial Garden of Golden Fruit",
+      "tags": [
+        "curated",
+        "fantasy",
+        "exterior"
+      ],
+      "prompt": "The scene is a breathtaking, ethereal landscape captured in a highly detailed, fantastical art style, radiating a serene and majestic tone. This celestial garden floats amidst an expanse of fluffy, white clouds, under a brilliant blue sky dotted with twinkling stars. Architectural elements of gleaming white marble and polished gold form elegant structures, suggesting a divine or heavenly realm. A majestic, gnarled tree with vibrant green leaves bears an abundance of radiant golden fruit, its branches spreading outward. Water features, appearing as tranquil, reflective pools, are integrated into the marble platform, their surfaces mirroring the brilliant light emanating from a grand, arched gateway. Lush, diverse flora, including various colorful flowers and smaller bushes, decorates the edges of the floating island, adding bursts of color against the pristine white and gold. On one side, a colossal wing adorned with all the colors of the rainbow extends gracefully, suggesting the presence of a magnificent winged being or a symbolic angelic guardian. The entire structure seems to be suspended in the heavens, with the vast, cloud-filled expanse stretching endlessly below and around. The golden archway stands prominently, serving as a focal point, with a bright light emanating from its center, illuminating the surrounding area. ",
+      "thumbnail": "https://cdn.marble.worldlabs.ai/91f34581-0c18-491c-bd2b-9b5078e73df6/5a4cedb5_image_prompt_sanitized.png",
+      "spz": {
+        "low": "https://cdn.marble.worldlabs.ai/91f34581-0c18-491c-bd2b-9b5078e73df6/18ee3c99-68c3-49e3-bec7-fa951200f988_dust_100k.spz",
+        "medium": "https://cdn.marble.worldlabs.ai/91f34581-0c18-491c-bd2b-9b5078e73df6/4d922c02-df97-4b31-a316-03cb0d7bb786_ceramic_500k.spz",
+        "high": "https://cdn.marble.worldlabs.ai/91f34581-0c18-491c-bd2b-9b5078e73df6/a72ba416-a4c5-4dee-aabd-f47892231bbd_ceramic.spz"
+      },
+      "collider_mesh": null,
+      "panorama": null,
+      "mpi": "https://cdn.marble.worldlabs.ai/91f34581-0c18-491c-bd2b-9b5078e73df6/e22f9af5-7540-436f-9711-4e4e8e7aecbb_dust_mpi",
+      "scale": 1.0185167789459229,
+      "ground_offset": 0.9109024405479431,
+      "owner": "danielr791",
+      "model": "Marble 0.1-plus"
+    },
+    {
+      "id": "234ae08a-7dee-491b-86f3-f9014113c2f2",
+      "name": "Mountain Valley Flower Meadow",
+      "tags": [
+        "curated",
+        "exterior"
+      ],
+      "prompt": "The scene is a panoramic natural landscape, rendered with a realistic style, evoking a serene and majestic atmosphere. The valley extends broadly, flanked by towering, rugged mountains whose peaks are adorned with patches of snow and ice, even in the warmth of spring. The valley floor is a vast expanse of verdant grassland, carpeted with countless white and yellow wildflowers, primarily daisies, creating a vibrant, intricate pattern. Scattered across the green meadows are clusters of deciduous trees, their fresh spring foliage a brilliant shade of green, indicating new growth and the vitality of the season. The lower slopes of the surrounding mountains are densely forested with lush, dark green coniferous trees, creating a stark contrast with the lighter hues of the valley floor. A clear, cerulean sky with only a few wispy clouds hovers above, suggesting a bright, mild day. As the valley curves around, unseen on either side, more gentle slopes covered in a similar blend of wildflowers and scattered trees lead upwards towards higher elevations, maintaining the consistent natural beauty. The forested mountain sides continue their ascent, creating an enveloping natural amphitheater, with their rocky faces becoming more prominent higher up, showing evidence of ancient geological forces. The meadow’s floral tapestry continues uninterrupted, stretching far into the distance and around the viewer, maintaining its dense bloom. ",
+      "thumbnail": "https://cdn.marble.worldlabs.ai/234ae08a-7dee-491b-86f3-f9014113c2f2/eab03ca2_image_prompt_sanitized.png",
+      "spz": {
+        "low": "https://cdn.marble.worldlabs.ai/234ae08a-7dee-491b-86f3-f9014113c2f2/06193630-02bd-4583-943a-3ffbf1d0e256_dust_100k.spz",
+        "medium": "https://cdn.marble.worldlabs.ai/234ae08a-7dee-491b-86f3-f9014113c2f2/f3569ed7-f3d9-433e-8c3d-f14f4112e8f4_ceramic_500k.spz",
+        "high": "https://cdn.marble.worldlabs.ai/234ae08a-7dee-491b-86f3-f9014113c2f2/08f6044f-02b8-4946-a352-ab7f9ddeb9f7_ceramic.spz"
+      },
+      "collider_mesh": null,
+      "panorama": null,
+      "mpi": "https://cdn.marble.worldlabs.ai/234ae08a-7dee-491b-86f3-f9014113c2f2/5adbde74-5227-433d-8523-6b0a837a4802_dust_mpi",
+      "scale": 1.0723060369491577,
+      "ground_offset": 0.6861361265182495,
+      "owner": "chompionaa682",
+      "model": "Marble 0.1-plus"
+    },
+    {
+      "id": "97583c3d-19d6-4246-86ed-a8d4c9201eab",
+      "name": "Golden Record Temple at Sunset",
+      "tags": [
+        "curated",
+        "exterior",
+        "fantasy"
+      ],
+      "prompt": "The scene is a fantastical and grand spectacle, rendered in a hyper-realistic style with an ethereal glow, creating a majestic and awe-inspiring tone. The golden brick road stretches infinitely forward, serving as the central axis of the landscape, its surface shimmering with warm highlights from the golden hour glow, indicating a vast, open area. This path leads directly to a monumental temple, constructed entirely from massive gold vinyl records and towering speaker stacks, a testament to music's grandeur. To the immediate left and right of the golden path, the terrain consists of dry, cracked earth with sparse, short vegetation, blending into a more verdant, expansive field further out. The sky above is a canvas of deep purples and oranges, characteristic of a sunset, with musical notes gently floating like ethereal embers, suggesting a continuous, silent melody filling the air. The golden brick road is composed of intricately cracked stones, each reflecting the warm light. The temple rises majestically at the path's end, its gold vinyl records gleaming under the setting sun, arranged in a multi-tiered, symmetrical structure with a grand archway at its center. Speaker stacks are integrated into the temple's design, positioned on either side of the main structure. Beyond the visible landscape, the golden brick road continues to curve gently, disappearing into the distant horizon, flanked by fields of similar dry, cracked earth and occasional, distant trees that mimic the sparse vegetation of the foreground. ",
+      "thumbnail": "https://cdn.marble.worldlabs.ai/97583c3d-19d6-4246-86ed-a8d4c9201eab/7db778cf_image_prompt_sanitized.png",
+      "spz": {
+        "low": "https://cdn.marble.worldlabs.ai/97583c3d-19d6-4246-86ed-a8d4c9201eab/30e5de8e-fc0f-4028-b513-cf91a42f4cef_dust_100k.spz",
+        "medium": "https://cdn.marble.worldlabs.ai/97583c3d-19d6-4246-86ed-a8d4c9201eab/63d5932b-3296-47e9-88b1-f04e2e30b53f_ceramic_500k.spz",
+        "high": "https://cdn.marble.worldlabs.ai/97583c3d-19d6-4246-86ed-a8d4c9201eab/6f1e41e1-8323-41e1-9d97-8e6fe5a5c683_ceramic.spz"
+      },
+      "collider_mesh": null,
+      "panorama": null,
+      "mpi": "https://cdn.marble.worldlabs.ai/97583c3d-19d6-4246-86ed-a8d4c9201eab/3cc3b474-c806-46c3-9c02-18524e44d323_dust_mpi",
+      "scale": 0.5735610723495483,
+      "ground_offset": 0.34474411606788635,
+      "owner": "chazzgpt",
+      "model": "Marble 0.1-plus"
+    }
+  ],
+  "count": 8
+}

@@ -1,0 +1,2732 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1.0,user-scalable=no"
+    />
+    <title>修仙界 · WorldLabs × VR仙侠</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #000;
+        color: #fff;
+        font-family: "Microsoft YaHei", sans-serif;
+        overflow: hidden;
+      }
+      #canvas-container {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Overlay UI */
+      #overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(5, 10, 30, 0.85),
+          rgba(0, 0, 0, 0.95)
+        );
+        transition: opacity 0.6s;
+      }
+      #overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+        visibility: hidden;
+      }
+      #overlay h1 {
+        font-size: clamp(28px, 5vw, 48px);
+        background: linear-gradient(135deg, #00ff88, #88ccff, #ffaa44);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 12px;
+        text-align: center;
+      }
+      #overlay p {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 14px;
+        margin-bottom: 24px;
+        text-align: center;
+        max-width: 500px;
+        line-height: 1.6;
+      }
+
+      /* Scene gallery */
+      #scene-gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 10px;
+        max-width: 700px;
+        width: 90%;
+        max-height: 45vh;
+        overflow-y: auto;
+        padding: 8px;
+        margin-bottom: 20px;
+      }
+      .scene-card {
+        position: relative;
+        border-radius: 10px;
+        overflow: hidden;
+        cursor: pointer;
+        aspect-ratio: 16/10;
+        border: 2px solid rgba(0, 255, 136, 0.2);
+        transition: all 0.3s;
+      }
+      .scene-card:hover {
+        border-color: #00ff88;
+        transform: scale(1.03);
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+      }
+      .scene-card.active {
+        border-color: #ffaa44;
+        box-shadow: 0 0 25px rgba(255, 170, 68, 0.4);
+      }
+      .scene-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .scene-card .label {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 4px 6px;
+        background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+        font-size: 10px;
+        line-height: 1.2;
+      }
+
+      /* Buttons */
+      .btn {
+        padding: 12px 32px;
+        border: none;
+        border-radius: 25px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-family: inherit;
+      }
+      .btn-vr {
+        background: linear-gradient(135deg, #00ff88, #00cc66);
+        color: #000;
+        font-weight: bold;
+      }
+      .btn-vr:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+      }
+      .btn-flat {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        margin-left: 12px;
+      }
+      .btn-flat:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      #btn-row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      /* HUD */
+      #hud {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 50;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .hud-pill {
+        padding: 5px 12px;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 15px;
+        font-size: 11px;
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      #scene-switcher {
+        position: fixed;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 999;
+        display: flex;
+        gap: 6px;
+        padding: 6px 10px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 20px;
+        backdrop-filter: blur(8px);
+        max-width: 90vw;
+        overflow-x: auto;
+      }
+      #VRButton {
+        z-index: 1 !important;
+      }
+      .scene-dot {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        cursor: pointer;
+        overflow: hidden;
+        transition: all 0.3s;
+        flex-shrink: 0;
+      }
+      .scene-dot:hover,
+      .scene-dot.active {
+        border-color: #00ff88;
+        transform: scale(1.15);
+      }
+      .scene-dot img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      /* Loading */
+      #loading-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #00ff88, #88ccff);
+        z-index: 200;
+        transition: width 0.3s;
+        width: 0;
+      }
+      #loading-text {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 200;
+        font-size: 18px;
+        text-shadow: 0 0 20px #00ff88;
+        display: none;
+        pointer-events: none;
+      }
+
+      /* Mode indicator */
+      #mode-indicator {
+        position: fixed;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 50;
+        padding: 8px 20px;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 20px;
+        font-size: 14px;
+        backdrop-filter: blur(8px);
+        text-align: center;
+        transition: all 0.3s;
+      }
+
+      /* ===== CULTIVATION SYSTEM ===== */
+      #cultivation-hud {
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 60;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        pointer-events: none;
+      }
+      #qi-bar-container {
+        width: 280px;
+        height: 14px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 7px;
+        border: 1px solid rgba(0, 200, 255, 0.3);
+        overflow: hidden;
+        backdrop-filter: blur(4px);
+      }
+      #qi-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #0088ff, #00ccff, #88eeff);
+        border-radius: 7px;
+        transition: width 0.3s;
+        width: 100%;
+        box-shadow: 0 0 10px rgba(0, 136, 255, 0.5);
+      }
+      #realm-display {
+        font-size: 13px;
+        color: #88eeff;
+        text-shadow: 0 0 15px rgba(0, 200, 255, 0.6);
+        letter-spacing: 2px;
+        font-weight: bold;
+      }
+      #skill-bar {
+        display: flex;
+        gap: 6px;
+        pointer-events: auto;
+      }
+      .skill-slot {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.2s;
+        backdrop-filter: blur(4px);
+      }
+      .skill-slot:hover {
+        border-color: #00ff88;
+        transform: scale(1.1);
+      }
+      .skill-slot.active {
+        border-color: #ffaa44;
+        box-shadow: 0 0 15px rgba(255, 170, 68, 0.4);
+      }
+      .skill-slot.cooldown {
+        opacity: 0.5;
+      }
+      .skill-slot .cd-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 0 0 6px 6px;
+        display: none;
+        transition: height 0.1s;
+      }
+      .skill-slot .key-hint {
+        position: absolute;
+        top: -8px;
+        right: -4px;
+        font-size: 9px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 1px 4px;
+        border-radius: 4px;
+        color: #aaa;
+      }
+      #fly-indicator {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 55;
+        display: none;
+        font-size: 22px;
+        color: #00ccff;
+        text-shadow: 0 0 30px #0088ff;
+        animation: flyPulse 1.5s ease-in-out infinite;
+        pointer-events: none;
+      }
+      @keyframes flyPulse {
+        0%,
+        100% {
+          opacity: 0.6;
+          transform: translate(-50%, -50%) scale(1);
+        }
+        50% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1.1);
+        }
+      }
+      #spell-flash {
+        position: fixed;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .flash-fire {
+        background: radial-gradient(
+          circle at center,
+          rgba(255, 100, 0, 0.3),
+          transparent 70%
+        );
+      }
+      .flash-ice {
+        background: radial-gradient(
+          circle at center,
+          rgba(0, 180, 255, 0.3),
+          transparent 70%
+        );
+      }
+      .flash-lightning {
+        background: radial-gradient(
+          circle at center,
+          rgba(200, 150, 255, 0.4),
+          transparent 70%
+        );
+      }
+      .flash-sword {
+        background: radial-gradient(
+          circle at center,
+          rgba(0, 255, 136, 0.3),
+          transparent 70%
+        );
+      }
+      #breakthrough {
+        position: fixed;
+        inset: 0;
+        z-index: 300;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        background: radial-gradient(
+          ellipse,
+          rgba(255, 215, 0, 0.15),
+          rgba(0, 0, 0, 0.95)
+        );
+        animation: btFade 3s forwards;
+        pointer-events: none;
+      }
+      @keyframes btFade {
+        0% {
+          opacity: 0;
+        }
+        15% {
+          opacity: 1;
+        }
+        85% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+      #breakthrough h2 {
+        font-size: 36px;
+        color: #ffd700;
+        text-shadow: 0 0 40px #ffd700;
+        margin-bottom: 12px;
+      }
+      #breakthrough p {
+        font-size: 18px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+      .nav-link {
+        display: inline-block;
+        margin-top: 16px;
+        padding: 8px 24px;
+        font-size: 13px;
+        color: #88ccff;
+        border: 1px solid rgba(136, 204, 255, 0.3);
+        border-radius: 25px;
+        text-decoration: none;
+        transition: all 0.3s;
+      }
+      .nav-link:hover {
+        background: rgba(136, 204, 255, 0.1);
+        border-color: #88ccff;
+        color: #bbddff;
+      }
+      @keyframes btShake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-4px) rotate(-0.5deg);
+        }
+        75% {
+          transform: translateX(4px) rotate(0.5deg);
+        }
+      }
+      #med-vignette {
+        position: fixed;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.8s;
+        background: radial-gradient(
+          ellipse at center,
+          transparent 50%,
+          rgba(0, 100, 255, 0.12) 100%
+        );
+      }
+      #med-vignette.active {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-bar"></div>
+    <div id="loading-text">⏳ 加载修仙界...</div>
+
+    <div id="overlay">
+      <h1>修仙界 · 万界穿梭</h1>
+      <p>
+        WorldLabs AI生成的Gaussian Splatting 3D修仙场景<br />
+        在VR中以修仙者身份穿越万界，御剑飞行，结印施法
+      </p>
+      <div id="scene-gallery"></div>
+      <div id="btn-row">
+        <button class="btn btn-vr" id="enterVR" disabled>检测VR中...</button>
+        <button class="btn btn-flat" id="enterFlat">平面模式进入</button>
+      </div>
+      <a class="nav-link" href="index.html">⚔️ 进入大庚剑阵 · 青竹蜂云剑</a>
+    </div>
+
+    <div id="hud" style="display: none">
+      <div class="hud-pill" id="hud-scene">🌍 加载中</div>
+      <div class="hud-pill" id="hud-fps">0 FPS</div>
+      <div class="hud-pill" id="hud-mode">🌸 莲花现世</div>
+      <div class="hud-pill" id="hud-quality">●○○</div>
+    </div>
+
+    <div id="scene-switcher" style="display: none"></div>
+    <div id="mode-indicator" style="display: none"></div>
+    <div
+      id="controls-hint"
+      style="
+        display: none;
+        position: fixed;
+        bottom: 50px;
+        right: 15px;
+        z-index: 60;
+        padding: 10px 14px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 12px;
+        font-size: 11px;
+        line-height: 1.7;
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(0, 255, 136, 0.15);
+        transition: opacity 2s;
+      "
+    >
+      <b style="color: #00ff88">修仙操控</b><br />
+      🖱️ 鼠标环视 WASD移动<br />
+      1🔥火球 2❄️冰封 3⚡雷法 4⚔️剑气<br />
+      F 御剑飞行 M 打坐修炼<br />
+      Q 切阵 E 画质 5-9切场景<br />
+      Space↑ Shift↓ 🥽VR手势
+    </div>
+
+    <div id="cultivation-hud">
+      <div id="realm-display">炼气一层</div>
+      <div id="qi-bar-container"><div id="qi-bar"></div></div>
+      <div id="skill-bar">
+        <div
+          class="skill-slot"
+          data-skill="fire"
+          onclick="window._castSpell('fire')"
+          title="火球术"
+        >
+          🔥<span class="key-hint">1</span>
+          <div class="cd-overlay"></div>
+        </div>
+        <div
+          class="skill-slot"
+          data-skill="ice"
+          onclick="window._castSpell('ice')"
+          title="冰封术"
+        >
+          ❄️<span class="key-hint">2</span>
+          <div class="cd-overlay"></div>
+        </div>
+        <div
+          class="skill-slot"
+          data-skill="lightning"
+          onclick="window._castSpell('lightning')"
+          title="雷法"
+        >
+          ⚡<span class="key-hint">3</span>
+          <div class="cd-overlay"></div>
+        </div>
+        <div
+          class="skill-slot"
+          data-skill="sword"
+          onclick="window._castSpell('sword')"
+          title="剑气"
+        >
+          ⚔️<span class="key-hint">4</span>
+          <div class="cd-overlay"></div>
+        </div>
+        <div
+          class="skill-slot"
+          data-skill="fly"
+          onclick="window._toggleFlight()"
+          title="御剑飞行 (F)"
+        >
+          🗡️<span class="key-hint">F</span>
+        </div>
+        <div
+          class="skill-slot"
+          data-skill="meditate"
+          onclick="window._toggleMeditation()"
+          title="打坐修炼 (M)"
+        >
+          🧘<span class="key-hint">M</span>
+        </div>
+      </div>
+    </div>
+    <div id="fly-indicator">⚔️ 御剑飞行中</div>
+    <div id="spell-flash"></div>
+    <div id="breakthrough">
+      <h2></h2>
+      <p></p>
+    </div>
+
+    <div id="med-vignette"></div>
+    <div id="canvas-container"></div>
+
+    <script>
+      // === PRE-MODULE DIAGNOSTIC (visible on-screen, no CDP needed) ===
+      (function () {
+        var diag = {
+          errors: [],
+          network: {},
+          moduleOk: false,
+          startMs: Date.now(),
+        };
+        window._DIAG = diag;
+        // Capture all errors
+        window.onerror = function (msg, src, line, col, err) {
+          diag.errors.push("[ERR] " + msg + " @" + src + ":" + line);
+          updateDiagUI();
+        };
+        window.addEventListener("unhandledrejection", function (e) {
+          diag.errors.push(
+            "[REJ] " + (e.reason?.message || e.reason || "unknown"),
+          );
+          updateDiagUI();
+        });
+        // Create visible diagnostic panel
+        var panel = document.createElement("div");
+        panel.id = "diag-panel";
+        panel.style.cssText =
+          "position:fixed;top:0;right:0;z-index:99999;background:rgba(0,0,0,0.95);color:#0f0;font:bold 14px monospace;padding:12px;max-width:50vw;max-height:100vh;overflow:auto;white-space:pre-wrap;pointer-events:none;";
+        document.addEventListener("DOMContentLoaded", function () {
+          document.body.appendChild(panel);
+          // Test CDN reachability
+          var cdns = [
+            [
+              "unpkg THREE",
+              "https://unpkg.com/three@0.178.0/build/three.module.js",
+            ],
+            [
+              "unpkg Spark",
+              "https://unpkg.com/@sparkjsdev/spark@0.1.10/dist/spark.module.js",
+            ],
+            [
+              "CDN marble",
+              "https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/81014abb_image_prompt_sanitized.png",
+            ],
+            [
+              "jsdelivr THREE",
+              "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js",
+            ],
+          ];
+          cdns.forEach(function (c) {
+            var t0 = Date.now();
+            fetch(c[1], { method: "HEAD", mode: "cors" })
+              .then(function (r) {
+                diag.network[c[0]] = r.status + " " + (Date.now() - t0) + "ms";
+                updateDiagUI();
+              })
+              .catch(function (e) {
+                diag.network[c[0]] =
+                  "FAIL:" +
+                  e.message.substring(0, 40) +
+                  " " +
+                  (Date.now() - t0) +
+                  "ms";
+                updateDiagUI();
+              });
+          });
+          // Module load timeout check
+          setTimeout(function () {
+            if (!diag.moduleOk) {
+              diag.errors.push(
+                "[TIMEOUT] Module script did not execute in 15s",
+              );
+              updateDiagUI();
+            }
+          }, 15000);
+          updateDiagUI();
+        });
+        function updateDiagUI() {
+          var p = document.getElementById("diag-panel");
+          if (!p) return;
+          // Auto-hide after module loads OK (5s fade delay + 1s transition)
+          if (diag.moduleOk && !diag._hiding) {
+            diag._hiding = true;
+            p.style.transition = "opacity 1s";
+            setTimeout(function () {
+              p.style.opacity = "0";
+              setTimeout(function () {
+                p.style.display = "none";
+              }, 1000);
+            }, 4000);
+          }
+          var elapsed = ((Date.now() - diag.startMs) / 1000).toFixed(1);
+          var lines = ["=== DIAG " + elapsed + "s ==="];
+          lines.push("UA: " + (navigator.userAgent || "").substring(0, 60));
+          lines.push("Module: " + (diag.moduleOk ? "OK" : "PENDING"));
+          lines.push(
+            "WebGL: " +
+              (function () {
+                try {
+                  var c = document.createElement("canvas");
+                  return c.getContext("webgl2")
+                    ? "webgl2"
+                    : c.getContext("webgl")
+                      ? "webgl1"
+                      : "NONE";
+                } catch (e) {
+                  return "ERR";
+                }
+              })(),
+          );
+          lines.push("--- Network ---");
+          for (var k in diag.network) lines.push(k + ": " + diag.network[k]);
+          if (diag.errors.length) {
+            lines.push("--- Errors (" + diag.errors.length + ") ---");
+            diag.errors.slice(-8).forEach(function (e) {
+              lines.push(e.substring(0, 100));
+            });
+          }
+          p.textContent = lines.join("\n");
+        }
+        window._updateDiag = updateDiagUI;
+      })();
+    </script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.178.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.178.0/examples/jsm/",
+          "@sparkjsdev/spark": "https://unpkg.com/@sparkjsdev/spark@0.1.10/dist/spark.module.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import {
+        SparkRenderer,
+        VRButton,
+        XrHands,
+        FpsMovement,
+      } from "@sparkjsdev/spark";
+
+      // Signal to diagnostic that module loaded OK (auto-hide handled by updateDiagUI)
+      if (window._DIAG) {
+        window._DIAG.moduleOk = true;
+        window._DIAG.errors.push("[OK] ES modules loaded");
+        var dp = document.getElementById("diag-panel");
+        if (dp) dp.style.color = "#0f0";
+        if (window._updateDiag) window._updateDiag();
+      }
+
+      // ===== CONFIGURATION =====
+      const IS_MOBILE = (() => {
+        if (
+          /Android|Quest|Oculus|iPhone|iPad|iPod|webOS|BlackBerry/i.test(
+            navigator.userAgent,
+          )
+        )
+          return true;
+        if (
+          navigator.maxTouchPoints > 1 &&
+          !matchMedia("(pointer:fine)").matches
+        )
+          return true;
+        return window.innerWidth < 768;
+      })();
+      const CFG = {
+        swordCount: IS_MOBILE ? 40 : 120,
+        trailLength: IS_MOBILE ? 8 : 20,
+        pathHistoryLength: 60,
+        spiritCount: IS_MOBILE ? 3 : 6,
+        defaultWorldId: "17f76543-a07f-4447-adb0-38a529b9e672", // 云端仙宫
+      };
+
+      // ===== STATE =====
+      const state = {
+        gestureMode: "LOTUS",
+        isTracking: false,
+        targetPosition: new THREE.Vector3(0, 1.5, -2),
+        pathHistory: Array.from(
+          { length: CFG.pathHistoryLength },
+          () => new THREE.Vector3(0, 1.5, -2),
+        ),
+        lastDirection: new THREE.Vector3(0, 0, -1),
+        isVR: false,
+        currentWorldId: null,
+        currentSplat: null,
+        scenes: [],
+        quality: "medium", // medium=500k — Quest 3 Adreno 740 handles this well, much better visual
+        playerPos: new THREE.Vector3(0, 0, 0),
+        playerVelocity: new THREE.Vector3(),
+      };
+
+      // Embedded scene data — standalone, fresh from WorldLabs API (2026-03-18)
+      const EMBEDDED_SCENES = [
+        {
+          id: "17f76543-a07f-4447-adb0-38a529b9e672",
+          name: "Ancient Immortal Palace in Clouds",
+          scale: 1.359,
+          ground_offset: 1.362,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/81014abb_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/d8e4a067-2547-4fbd-b348-51fc5c44778c_dust_100k.spz",
+            medium:
+              "https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/b0150f15-ebb2-4550-8c89-bfe765340d53_ceramic_500k.spz",
+            high: "https://cdn.marble.worldlabs.ai/17f76543-a07f-4447-adb0-38a529b9e672/17dbdd2d-3c47-4a6f-8e0c-256d33e24cc7_ceramic.spz",
+          },
+        },
+        {
+          id: "660f680d-c31f-4463-8285-b61ad406739e",
+          name: "Floating Asian Palace Complex",
+          scale: 9.168,
+          ground_offset: 15.512,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/660f680d-c31f-4463-8285-b61ad406739e/9b25dd11_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/660f680d-c31f-4463-8285-b61ad406739e/41a57d07-6ace-4f65-8a7e-5e9289db6b92_dust_100k.spz",
+            medium:
+              "https://cdn.marble.worldlabs.ai/660f680d-c31f-4463-8285-b61ad406739e/53fc72c4-4ac6-448e-80f0-57ac4a751e9b_ceramic_500k.spz",
+            high: "https://cdn.marble.worldlabs.ai/660f680d-c31f-4463-8285-b61ad406739e/fb7c8a27-e224-40e6-8863-4f5acb78c68c_ceramic.spz",
+          },
+        },
+        {
+          id: "b0029c5e-e7c4-49ee-9649-561f84402f18",
+          name: "Ancient Sentinels Guard River Passage",
+          scale: 0.808,
+          ground_offset: 0.821,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/b0029c5e-e7c4-49ee-9649-561f84402f18/281425bb_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/b0029c5e-e7c4-49ee-9649-561f84402f18/79f7f553-5c53-4f28-819d-ef319826024a_dust_100k.spz",
+            medium:
+              "https://cdn.marble.worldlabs.ai/b0029c5e-e7c4-49ee-9649-561f84402f18/9d2b50b7-209b-424d-b5fb-3a5817da25c1_ceramic_500k.spz",
+            high: "https://cdn.marble.worldlabs.ai/b0029c5e-e7c4-49ee-9649-561f84402f18/c83e489d-69b0-48cd-9db5-8f829ff7cfdf_ceramic.spz",
+          },
+        },
+        {
+          id: "dc15921b-3a10-4be3-b325-fba5c308560b",
+          name: "Winter Mountain Lake Sunset",
+          scale: 1.376,
+          ground_offset: 0.906,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/dc15921b-3a10-4be3-b325-fba5c308560b/89c56884_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/dc15921b-3a10-4be3-b325-fba5c308560b/9b3c619f-2219-40cd-b4ad-ec9758e44248_dust_100k.spz",
+            medium:
+              "https://cdn.marble.worldlabs.ai/dc15921b-3a10-4be3-b325-fba5c308560b/33bcaa92-9c83-4546-a428-9272bfe11ffb_ceramic_500k.spz",
+            high: "https://cdn.marble.worldlabs.ai/dc15921b-3a10-4be3-b325-fba5c308560b/3799b970-5685-4902-89df-d2719e3fe58a_ceramic.spz",
+          },
+        },
+        {
+          id: "91f34581-0c18-491c-bd2b-9b5078e73df6",
+          name: "Celestial Garden of Golden Fruit",
+          scale: 1.019,
+          ground_offset: 0.911,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/91f34581-0c18-491c-bd2b-9b5078e73df6/5a4cedb5_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/91f34581-0c18-491c-bd2b-9b5078e73df6/18ee3c99-68c3-49e3-bec7-fa951200f988_dust_100k.spz",
+            medium:
+              "https://cdn.marble.worldlabs.ai/91f34581-0c18-491c-bd2b-9b5078e73df6/4d922c02-df97-4b31-a316-03cb0d7bb786_ceramic_500k.spz",
+            high: "https://cdn.marble.worldlabs.ai/91f34581-0c18-491c-bd2b-9b5078e73df6/a72ba416-a4c5-4dee-aabd-f47892231bbd_ceramic.spz",
+          },
+        },
+        {
+          id: "234ae08a-7dee-491b-86f3-f9014113c2f2",
+          name: "Mountain Valley Flower Meadow",
+          scale: 1.072,
+          ground_offset: 0.686,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/234ae08a-7dee-491b-86f3-f9014113c2f2/eab03ca2_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/234ae08a-7dee-491b-86f3-f9014113c2f2/06193630-02bd-4583-943a-3ffbf1d0e256_dust_100k.spz",
+            medium:
+              "https://cdn.marble.worldlabs.ai/234ae08a-7dee-491b-86f3-f9014113c2f2/f3569ed7-f3d9-433e-8c3d-f14f4112e8f4_ceramic_500k.spz",
+            high: "https://cdn.marble.worldlabs.ai/234ae08a-7dee-491b-86f3-f9014113c2f2/08f6044f-02b8-4946-a352-ab7f9ddeb9f7_ceramic.spz",
+          },
+        },
+        {
+          id: "97583c3d-19d6-4246-86ed-a8d4c9201eab",
+          name: "Golden Record Temple at Sunset",
+          scale: 0.574,
+          ground_offset: 0.345,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/97583c3d-19d6-4246-86ed-a8d4c9201eab/7db778cf_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/97583c3d-19d6-4246-86ed-a8d4c9201eab/30e5de8e-fc0f-4028-b513-cf91a42f4cef_dust_100k.spz",
+            medium:
+              "https://cdn.marble.worldlabs.ai/97583c3d-19d6-4246-86ed-a8d4c9201eab/63d5932b-3296-47e9-88b1-f04e2e30b53f_ceramic_500k.spz",
+            high: "https://cdn.marble.worldlabs.ai/97583c3d-19d6-4246-86ed-a8d4c9201eab/6f1e41e1-8323-41e1-9d97-8e6fe5a5c683_ceramic.spz",
+          },
+        },
+        {
+          id: "3883f06a-ccdb-439a-bef7-ce452d69bad3",
+          name: "Enchanted Wisteria Pathway",
+          scale: 1.0,
+          ground_offset: 0,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/3883f06a-ccdb-439a-bef7-ce452d69bad3/4bb6f947_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/3883f06a-ccdb-439a-bef7-ce452d69bad3/c9136f39-6ef4-4fd9-97ea-47c2f8fae2c6_dust_100k.spz",
+            high: "https://cdn.marble.worldlabs.ai/3883f06a-ccdb-439a-bef7-ce452d69bad3/c8942023-2d6f-407f-8f96-c793faa1074a_ceramic.spz",
+          },
+        },
+        {
+          id: "99f7179f-a6c8-49e1-906f-3c4eaa364797",
+          name: "Fiery Ancient Throne Room",
+          scale: 1.867,
+          ground_offset: 1.099,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/99f7179f-a6c8-49e1-906f-3c4eaa364797/3a67db63_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/99f7179f-a6c8-49e1-906f-3c4eaa364797/c604f1bf-5d97-4f39-8b3c-3c3334394225_dust_100k.spz",
+            medium:
+              "https://cdn.marble.worldlabs.ai/99f7179f-a6c8-49e1-906f-3c4eaa364797/5031dcb0-761c-441a-811b-489a7869d6b0_ceramic_500k.spz",
+            high: "https://cdn.marble.worldlabs.ai/99f7179f-a6c8-49e1-906f-3c4eaa364797/d82771a4-d718-4b2e-9fb3-8e629386c9da_ceramic.spz",
+          },
+        },
+        {
+          id: "a6561515-cbb0-4a2d-84a1-d0f4e63e027c",
+          name: "Cozy Dragon Hearthside Retreat",
+          scale: 1.259,
+          ground_offset: 1.223,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/a6561515-cbb0-4a2d-84a1-d0f4e63e027c/ad9faba0_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/a6561515-cbb0-4a2d-84a1-d0f4e63e027c/2a9be8ed-6e83-4410-ac13-4d0e6345cb1e_dust_100k.spz",
+            medium:
+              "https://cdn.marble.worldlabs.ai/a6561515-cbb0-4a2d-84a1-d0f4e63e027c/5e6bbeea-885b-400b-b763-66bc541981ef_ceramic_500k.spz",
+            high: "https://cdn.marble.worldlabs.ai/a6561515-cbb0-4a2d-84a1-d0f4e63e027c/ef7dad74-f248-4cb0-8e57-89fa6d5c5ec3_ceramic.spz",
+          },
+        },
+        {
+          id: "9b66855a-e073-4249-825c-a3d065f8b35b",
+          name: "Hidden Temple Gate at Night",
+          scale: 1.387,
+          ground_offset: 0.894,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/9b66855a-e073-4249-825c-a3d065f8b35b/75efd212_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/9b66855a-e073-4249-825c-a3d065f8b35b/df22b916-0a6e-43e4-832c-8d28fbd71c72_dust_100k.spz",
+            medium:
+              "https://cdn.marble.worldlabs.ai/9b66855a-e073-4249-825c-a3d065f8b35b/a8913a26-864d-4c4d-ac4e-7dffb4b06c2d_ceramic_500k.spz",
+            high: "https://cdn.marble.worldlabs.ai/9b66855a-e073-4249-825c-a3d065f8b35b/0c534cc7-8dc9-4656-8362-3ef3b4bc2591_ceramic.spz",
+          },
+        },
+        {
+          id: "d2413257-1eac-46f4-82a3-5a5fab222282",
+          name: "Enchanted Medieval Cobblestone Street",
+          scale: 1.0,
+          ground_offset: 0.8,
+          thumbnail:
+            "https://cdn.marble.worldlabs.ai/d2413257-1eac-46f4-82a3-5a5fab222282/ccbe38b8_image_prompt_sanitized.png",
+          spz: {
+            low: "https://cdn.marble.worldlabs.ai/d2413257-1eac-46f4-82a3-5a5fab222282/8b99c232-29b3-496e-829a-4b9f72d4b786_dust_100k.spz",
+            high: "https://cdn.marble.worldlabs.ai/d2413257-1eac-46f4-82a3-5a5fab222282/a7ac0cbc-3bb3-4a17-876f-18c96b9f2574_ceramic.spz",
+          },
+        },
+      ];
+      const IS_LOCALHOST =
+        location.hostname === "localhost" ||
+        location.hostname === "127.0.0.1" ||
+        location.hostname.startsWith("192.168.");
+
+      const modeColors = {
+        LOTUS: "#ffaa44",
+        DRAGON: "#00ff88",
+        SHIELD: "#88ccff",
+        DAGENG: "#ff4488",
+      };
+      const modeNames = {
+        LOTUS: "🌸 莲花现世",
+        DRAGON: "🐉 游龙随行",
+        SHIELD: "🛡️ 剑盾护体",
+        DAGENG: "🤘 大庚剑阵",
+      };
+
+      // ===== CULTIVATION SYSTEM =====
+      const REALMS = [
+        { name: "炼气一层", qi: 100, color: "#88aacc" },
+        { name: "炼气二层", qi: 150, color: "#88bbdd" },
+        { name: "炼气三层", qi: 200, color: "#88ccee" },
+        { name: "筑基初期", qi: 300, color: "#66ddff" },
+        { name: "筑基中期", qi: 400, color: "#44eeff" },
+        { name: "筑基后期", qi: 500, color: "#22ffff" },
+        { name: "金丹初期", qi: 700, color: "#ffdd44" },
+        { name: "金丹中期", qi: 900, color: "#ffcc00" },
+        { name: "元婴初期", qi: 1200, color: "#ff8844" },
+        { name: "化神", qi: 2000, color: "#ff44ff" },
+      ];
+      const SPELLS = {
+        fire: {
+          name: "火球术",
+          cost: 15,
+          cd: 2.0,
+          color: "#ff4400",
+          count: 40,
+          speed: 12,
+          size: 0.08,
+        },
+        ice: {
+          name: "冰封术",
+          cost: 20,
+          cd: 3.0,
+          color: "#00aaff",
+          count: 60,
+          speed: 8,
+          size: 0.06,
+        },
+        lightning: {
+          name: "雷法",
+          cost: 25,
+          cd: 4.0,
+          color: "#cc88ff",
+          count: 80,
+          speed: 20,
+          size: 0.04,
+        },
+        sword: {
+          name: "剑气",
+          cost: 10,
+          cd: 1.5,
+          color: "#00ff88",
+          count: 30,
+          speed: 15,
+          size: 0.05,
+        },
+      };
+      const REALM_NAMES = [
+        "云端仙宫",
+        "浮空宫殿",
+        "夜幕秘境",
+        "巨石河道",
+        "雪山落日",
+        "天界果园",
+        "山谷花海",
+        "金殿夕照",
+        "紫藤仙径",
+        "幻境魔塔",
+        "仙灵花园",
+        "灵溪幽谷",
+        "蓬莱仙岛",
+        "昆仑道场",
+        "鸿蒙天界",
+      ];
+      // Scene Chinese names for gallery display
+      const SCENE_CN = {
+        "17f76543-a07f-4447-adb0-38a529b9e672": "☁️ 云端仙宫",
+        "660f680d-c31f-4463-8285-b61ad406739e": "🏯 浮空宫殿",
+        "b0029c5e-e7c4-49ee-9649-561f84402f18": "🗿 巨石河道",
+        "dc15921b-3a10-4be3-b325-fba5c308560b": "❄️ 雪山落日",
+        "91f34581-0c18-491c-bd2b-9b5078e73df6": "🍊 天界果园",
+        "234ae08a-7dee-491b-86f3-f9014113c2f2": "🌺 山谷花海",
+        "97583c3d-19d6-4246-86ed-a8d4c9201eab": "🌅 金殿夕照",
+        "3883f06a-ccdb-439a-bef7-ce452d69bad3": "🌸 紫藤仙径",
+        "99f7179f-a6c8-49e1-906f-3c4eaa364797": "🔥 火焰圣殿",
+        "a6561515-cbb0-4a2d-84a1-d0f4e63e027c": "🐉 龙巢壁炉",
+        "9b66855a-e073-4249-825c-a3d065f8b35b": "🌙 暗夜神殿",
+        "d2413257-1eac-46f4-82a3-5a5fab222282": "🏘️ 中世纪仙街",
+      };
+      const cult = {
+        qi: 100,
+        maxQi: 100,
+        realmIdx: 0,
+        exp: 0,
+        flying: false,
+        flySpd: 14,
+        meditating: false,
+        medTimer: 0,
+        cds: { fire: 0, ice: 0, lightning: 0, sword: 0 },
+        spellParticles: [],
+        atmosParticles: null,
+        medParticles: null,
+        qiRegen: 5,
+        currentSpellIdx: 0,
+      };
+      const spellOrder = ["fire", "ice", "lightning", "sword"];
+
+      // ===== RENDERER =====
+      const renderer = new THREE.WebGLRenderer({
+        antialias: !IS_MOBILE,
+        alpha: false,
+        powerPreference: "high-performance",
+      });
+      renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2),
+      );
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+      document
+        .getElementById("canvas-container")
+        .appendChild(renderer.domElement);
+
+      // SparkJS renderer — required for proper 3DGS stereo VR rendering
+      const spark = new SparkRenderer({ renderer, maxStdDev: Math.sqrt(5) });
+      const localFrame = new THREE.Group();
+      let lastCameraPos = new THREE.Vector3(0, 0, 0);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#050a1e");
+      scene.fog = new THREE.Fog("#050a1e", 15, 80);
+
+      const camera = new THREE.PerspectiveCamera(
+        65,
+        window.innerWidth / window.innerHeight,
+        0.05,
+        500,
+      );
+      camera.position.set(0, 1.6, 3);
+
+      // localFrame houses SparkRenderer + camera for floating-point precision in large splat worlds
+      scene.add(localFrame);
+      localFrame.add(spark);
+      localFrame.add(camera);
+
+      let controls = null;
+
+      // ===== LIGHTING =====
+      const ambientLight = new THREE.AmbientLight(0x334466, 0.6);
+      scene.add(ambientLight);
+      const mainLight = new THREE.DirectionalLight(0xffeedd, 1.2);
+      mainLight.position.set(5, 10, 5);
+      scene.add(mainLight);
+      const fillLight = new THREE.HemisphereLight(0x4488ff, 0x224400, 0.4);
+      scene.add(fillLight);
+
+      // ===== SPARKJS SPLAT LOADING =====
+      let SplatMesh = null;
+
+      async function loadSparkJS() {
+        try {
+          const spark = await import("@sparkjsdev/spark");
+          SplatMesh = spark.SplatMesh;
+          console.log("✅ SparkJS loaded (unpkg)");
+          return true;
+        } catch (e) {
+          console.error("❌ SparkJS load failed:", e);
+          return false;
+        }
+      }
+
+      let _loadingWorld = false;
+      async function loadWorld(worldId, quality = "low") {
+        if (_loadingWorld) return; // Prevent concurrent loads
+        _loadingWorld = true;
+        showLoading(true, "获取场景数据...");
+        setLoadProgress(10);
+
+        try {
+          // Use embedded data first, fall back to Hub API
+          let world = EMBEDDED_SCENES.find((s) => s.id === worldId);
+          if (!world && IS_LOCALHOST) {
+            const resp = await fetch(`/api/world/${worldId}`);
+            world = await resp.json();
+          }
+          if (!world || world.error)
+            throw new Error(world?.error || "Scene not found");
+
+          state.currentWorldId = worldId;
+          if (_hudSceneEl)
+            _hudSceneEl.textContent = SCENE_CN[worldId] || `🌍 ${world.name}`;
+
+          // Remove previous splat
+          if (state.currentSplat) {
+            scene.remove(state.currentSplat);
+            if (state.currentSplat.dispose) state.currentSplat.dispose();
+            state.currentSplat = null;
+          }
+          // Clean up previous fallback panorama textures
+          if (scene.background && scene.background.isTexture) {
+            scene.background.dispose();
+            scene.background = null;
+          }
+          if (scene.environment && scene.environment.isTexture) {
+            scene.environment.dispose();
+            scene.environment = null;
+          }
+
+          setLoadProgress(30);
+          showLoading(true, "加载Gaussian Splat...");
+
+          // Get SPZ URL by quality — fallback chain: requested → low
+          const qualityMap = { low: "low", medium: "medium", high: "high" };
+          let actualQuality = quality;
+          let spzUrl = world.spz[qualityMap[quality]];
+          if (!spzUrl && quality !== "low") {
+            spzUrl = world.spz.low;
+            actualQuality = "low";
+          }
+          if (!spzUrl && quality !== "high") {
+            spzUrl = world.spz.high;
+            actualQuality = "high";
+          }
+
+          if (!spzUrl) {
+            throw new Error("No SPZ URL available for this world");
+          }
+
+          // CDN access strategy: always try direct CDN (CORS-friendly, works on HTTPS + most localhost)
+          console.log("🌐 SPZ direct CDN:", spzUrl.substring(0, 80));
+
+          // Try loading via SparkJS
+          if (SplatMesh) {
+            try {
+              const splat = new SplatMesh({ url: spzUrl });
+
+              // Apply world scale — metric_scale_factor converts splat to meters
+              const scale = world.scale || 1.0;
+              splat.scale.setScalar(scale);
+
+              // Position splat so ground plane aligns with Y=0
+              // ground_plane_offset = distance from scene center to ground (in local coords)
+              // After scale, ground is at local_y * scale below origin → lift scene UP
+              const groundOff = (world.ground_offset || 0) * scale;
+              splat.position.y = groundOff;
+
+              // Identity quaternion — SparkJS handles coordinate conversion internally
+              splat.quaternion.identity();
+
+              scene.add(splat);
+              state.currentSplat = splat;
+
+              setLoadProgress(90);
+              showLoading(true, "场景就绪!");
+
+              // Position camera INSIDE the splat at eye height above ground
+              const eyeY = 1.6;
+              state.playerPos.set(0, eyeY, 0);
+              camera.position.set(0, eyeY, 0);
+              camera.near = 0.01;
+              camera.far = 2000;
+              camera.updateProjectionMatrix();
+              if (controls) {
+                controls.target.set(0, eyeY, -2);
+                controls.minDistance = 0;
+                controls.maxDistance = 1000;
+                controls.update();
+              }
+              // Push fog far back so splat is fully visible
+              scene.fog.near = 80;
+              scene.fog.far = 500;
+
+              setTimeout(() => {
+                setLoadProgress(100);
+                showLoading(false);
+              }, 500);
+
+              console.log(
+                `✅ World loaded: ${world.name} (${actualQuality}${actualQuality !== quality ? ", requested " + quality : ""})`,
+              );
+              if (actualQuality !== quality) state.quality = actualQuality;
+              updateSceneSwitcher();
+              updateQualityHUD();
+              return true;
+            } catch (splatErr) {
+              console.warn("SparkJS SplatMesh failed:", splatErr);
+            }
+          }
+
+          // Fallback: show panorama/thumbnail as skybox
+          if (world.thumbnail) {
+            showLoading(true, "降级: 加载全景图...");
+            const loader = new THREE.TextureLoader();
+            loader.setCrossOrigin("anonymous");
+            const tex = await new Promise((resolve, reject) => {
+              loader.load(world.thumbnail, resolve, undefined, reject);
+            });
+            tex.mapping = THREE.EquirectangularReflectionMapping;
+            scene.background = tex;
+            scene.environment = tex;
+            setLoadProgress(100);
+            showLoading(false);
+            console.log(`⚠️ Fallback panorama loaded: ${world.name}`);
+            return true;
+          }
+
+          throw new Error("No renderable assets");
+        } catch (e) {
+          console.error("World load error:", e);
+          showLoading(true, `❌ 加载失败: ${e.message}`);
+          setTimeout(() => showLoading(false), 3000);
+          return false;
+        } finally {
+          _loadingWorld = false;
+        }
+      }
+
+      // ===== SWORD FORMATION SYSTEM (from VR仙侠 v7.0) =====
+      const swordGeo = new THREE.ConeGeometry(0.015, 0.25, 4);
+      swordGeo.rotateX(Math.PI / 2);
+      const swordMat = new THREE.MeshStandardMaterial({
+        color: 0x00ff88,
+        emissive: 0x00ff88,
+        emissiveIntensity: 0.6,
+        metalness: 0.9,
+        roughness: 0.1,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const swordMesh = new THREE.InstancedMesh(
+        swordGeo,
+        swordMat,
+        CFG.swordCount,
+      );
+      swordMesh.frustumCulled = false;
+      scene.add(swordMesh);
+
+      const trailGeo = new THREE.BufferGeometry();
+      const trailPositions = new Float32Array(
+        CFG.swordCount * CFG.trailLength * 3,
+      );
+      const trailOpacities = new Float32Array(CFG.swordCount * CFG.trailLength);
+      trailGeo.setAttribute(
+        "position",
+        new THREE.BufferAttribute(trailPositions, 3),
+      );
+      trailGeo.setAttribute(
+        "opacity",
+        new THREE.BufferAttribute(trailOpacities, 1),
+      );
+      const trailMat = new THREE.PointsMaterial({
+        color: 0x00ff88,
+        size: 0.02,
+        transparent: true,
+        opacity: 0.4,
+        blending: THREE.AdditiveBlending,
+      });
+      const trailPoints = new THREE.Points(trailGeo, trailMat);
+      scene.add(trailPoints);
+
+      // Magic circle ground effect
+      const circleGeo = new THREE.RingGeometry(1.5, 2.0, 64);
+      const circleMat = new THREE.MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0.15,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+      });
+      const magicCircle = new THREE.Mesh(circleGeo, circleMat);
+      magicCircle.rotation.x = -Math.PI / 2;
+      magicCircle.position.y = 0.01;
+      scene.add(magicCircle);
+
+      // Simplex noise approximation
+      const noise3D = (x, y, z) =>
+        Math.sin(x * 1.2 + y * 0.8) *
+        Math.cos(y * 1.1 + z * 0.9) *
+        Math.sin(z * 0.7 + x * 1.3);
+
+      const dummy = new THREE.Object3D();
+      const _tmpColor = new THREE.Color();
+      let currentScales = new Float32Array(CFG.swordCount).fill(1);
+      // P2+P3+P4: Pre-allocated temp vectors (avoid per-frame GC pressure)
+      const _xCurrentTarget = new THREE.Vector3();
+      const _xTmpDir = new THREE.Vector3();
+      const _xTmpTangent = new THREE.Vector3();
+      const _xFwdVec = new THREE.Vector3();
+      const _xRightVec = new THREE.Vector3();
+      const _xUpVec = new THREE.Vector3(0, 1, 0);
+      const _xCtrlPos = new THREE.Vector3();
+      const _xSpellOrigin = new THREE.Vector3();
+      let _frameCount = 0;
+      let adaptiveSwordCount = CFG.swordCount;
+
+      function updateSwords(time, delta) {
+        const dt = Math.min(delta, 1 / 30);
+        const target = state.targetPosition;
+        const mode = state.gestureMode;
+        const tracking = state.isTracking;
+        const history = state.pathHistory;
+
+        // Swords always orbit around camera/player position (inside the scene)
+        const camPos = camera.position;
+        _xCurrentTarget.copy(target);
+        let currentTarget = _xCurrentTarget;
+        if (!tracking) {
+          currentTarget.set(
+            Math.sin(time * 0.5) * 0.8 + camPos.x,
+            camPos.y + Math.cos(time * 0.4) * 0.5,
+            camPos.z - 2 + Math.sin(time * 0.3) * 0.4,
+          );
+        } else {
+          // In tracking mode, offset target relative to camera
+          currentTarget.x += camPos.x;
+          currentTarget.y += camPos.y - 1.5;
+          currentTarget.z += camPos.z;
+        }
+
+        // P5: Reuse popped Vector3 (circular buffer)
+        const _histRecycle = history.pop();
+        _histRecycle.copy(currentTarget);
+        history.unshift(_histRecycle);
+
+        _tmpColor.set(modeColors[mode] || "#00ff88");
+        swordMat.color.copy(_tmpColor);
+        swordMat.emissive.copy(_tmpColor);
+        trailMat.color.copy(_tmpColor);
+
+        swordMesh.count = adaptiveSwordCount;
+        for (let i = 0; i < adaptiveSwordCount; i++) {
+          const t = i / CFG.swordCount;
+          const angle = t * Math.PI * 2;
+
+          let px, py, pz, lx, ly, lz;
+          if (mode === "LOTUS") {
+            const r = 1.2 + Math.sin(time * 2 + t * 6) * 0.3;
+            const h = Math.sin(t * Math.PI * 4 + time) * 0.4;
+            px = currentTarget.x + Math.cos(angle + time * 0.5) * r;
+            py = currentTarget.y + h;
+            pz = currentTarget.z + Math.sin(angle + time * 0.5) * r;
+            lx = currentTarget.x;
+            ly = currentTarget.y;
+            lz = currentTarget.z;
+          } else if (mode === "DRAGON") {
+            const histIdx = Math.min(
+              Math.floor(t * history.length * 0.8),
+              history.length - 1,
+            );
+            const hp = history[histIdx];
+            const r = 0.3 + Math.sin(time * 3 + t * 10) * 0.15;
+            px = hp.x + Math.cos(angle * 3 + time * 2) * r;
+            py = hp.y + Math.sin(angle * 2 + time * 3) * r * 0.5;
+            pz = hp.z + Math.sin(angle * 3 + time * 2) * r;
+            const nextIdx = Math.min(histIdx + 1, history.length - 1);
+            _xTmpDir.copy(history[nextIdx]).sub(hp);
+            const dir = _xTmpDir;
+            if (dir.lengthSq() < 0.0001) dir.set(0, 0, -1);
+            else dir.normalize();
+            lx = px + dir.x;
+            ly = py + dir.y;
+            lz = pz + dir.z;
+          } else if (mode === "SHIELD") {
+            const r = 1.8;
+            const theta = Math.acos(1 - 2 * t);
+            const phi = angle * 3 + time * 0.3;
+            px = currentTarget.x + r * Math.sin(theta) * Math.cos(phi);
+            py = currentTarget.y + r * Math.cos(theta) * 0.8;
+            pz = currentTarget.z + r * Math.sin(theta) * Math.sin(phi);
+            lx = currentTarget.x;
+            ly = currentTarget.y;
+            lz = currentTarget.z;
+          } else {
+            // DAGENG
+            const layer = Math.floor(t * 5);
+            const lt = (t * 5) % 1;
+            const layerAngle = lt * Math.PI * 2 + time * (1 + layer * 0.5);
+            const r = 0.8 + layer * 0.6;
+            px = currentTarget.x + Math.cos(layerAngle) * r;
+            py =
+              currentTarget.y +
+              (layer - 2) * 0.5 +
+              Math.sin(time * 2 + lt * 4) * 0.1;
+            pz = currentTarget.z + Math.sin(layerAngle) * r;
+            _xTmpTangent.set(-Math.sin(layerAngle), 0, Math.cos(layerAngle));
+            const tangent = _xTmpTangent;
+            lx = px + tangent.x;
+            ly = py + tangent.y;
+            lz = pz + tangent.z;
+          }
+
+          dummy.position.set(px, py, pz);
+          dummy.lookAt(lx, ly, lz);
+          const targetScale = 0.8 + noise3D(px, py + time, pz) * 0.4;
+          currentScales[i] += (targetScale - currentScales[i]) * dt * 5;
+          dummy.scale.setScalar(currentScales[i]);
+          dummy.updateMatrix();
+          swordMesh.setMatrixAt(i, dummy.matrix);
+
+          // Trail update
+          const base = i * CFG.trailLength * 3;
+          const oBase = i * CFG.trailLength;
+          for (let j = CFG.trailLength - 1; j > 0; j--) {
+            trailPositions[base + j * 3] = trailPositions[base + (j - 1) * 3];
+            trailPositions[base + j * 3 + 1] =
+              trailPositions[base + (j - 1) * 3 + 1];
+            trailPositions[base + j * 3 + 2] =
+              trailPositions[base + (j - 1) * 3 + 2];
+            trailOpacities[oBase + j] = trailOpacities[oBase + j - 1] * 0.92;
+          }
+          trailPositions[base] = px;
+          trailPositions[base + 1] = py;
+          trailPositions[base + 2] = pz;
+          trailOpacities[oBase] = 0.5;
+        }
+        swordMesh.instanceMatrix.needsUpdate = true;
+        trailGeo.attributes.position.needsUpdate = true;
+        trailGeo.attributes.opacity.needsUpdate = true;
+
+        // Magic circle follows camera
+        magicCircle.position.x = camPos.x;
+        magicCircle.position.y = camPos.y - 1.5;
+        magicCircle.position.z = camPos.z;
+        magicCircle.rotation.z = time * 0.1;
+        circleMat.color.copy(_tmpColor);
+      }
+
+      // ===== ATMOSPHERIC SPIRITUAL ENERGY =====
+      function createAtmosphericParticles() {
+        const N = IS_MOBILE ? 80 : 200;
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(N * 3),
+          col = new Float32Array(N * 3),
+          vel = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+          pos[i * 3] = (Math.random() - 0.5) * 30;
+          pos[i * 3 + 1] = Math.random() * 15;
+          pos[i * 3 + 2] = (Math.random() - 0.5) * 30;
+          const c = new THREE.Color().setHSL(
+            0.5 + Math.random() * 0.2,
+            0.6,
+            0.7,
+          );
+          col[i * 3] = c.r;
+          col[i * 3 + 1] = c.g;
+          col[i * 3 + 2] = c.b;
+          vel[i * 3] = (Math.random() - 0.5) * 0.3;
+          vel[i * 3 + 1] = 0.1 + Math.random() * 0.3;
+          vel[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
+        }
+        geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+        const mat = new THREE.PointsMaterial({
+          size: 0.05,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.4,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const pts = new THREE.Points(geo, mat);
+        pts.userData.vel = vel;
+        scene.add(pts);
+        cult.atmosParticles = pts;
+      }
+      function updateAtmosParticles(time, dt) {
+        const p = cult.atmosParticles;
+        if (!p) return;
+        const pos = p.geometry.attributes.position.array,
+          vel = p.userData.vel,
+          cam = camera.position,
+          N = pos.length / 3;
+        for (let i = 0; i < N; i++) {
+          pos[i * 3] += vel[i * 3] * dt;
+          pos[i * 3 + 1] += vel[i * 3 + 1] * dt;
+          pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
+          if (Math.abs(pos[i * 3] - cam.x) > 15)
+            pos[i * 3] = cam.x + (Math.random() - 0.5) * 30;
+          if (pos[i * 3 + 1] > 15 || pos[i * 3 + 1] < -1) {
+            pos[i * 3 + 1] = Math.random() * 2;
+            vel[i * 3 + 1] = 0.1 + Math.random() * 0.3;
+          }
+          if (Math.abs(pos[i * 3 + 2] - cam.z) > 15)
+            pos[i * 3 + 2] = cam.z + (Math.random() - 0.5) * 30;
+          vel[i * 3] += (Math.random() - 0.5) * dt * 0.5;
+          vel[i * 3 + 2] += (Math.random() - 0.5) * dt * 0.5;
+        }
+        p.geometry.attributes.position.needsUpdate = true;
+        p.material.opacity = 0.3 + Math.sin(time * 0.5) * 0.1;
+      }
+
+      // ===== SPELL SYSTEM =====
+      function castSpell(type) {
+        const sp = SPELLS[type];
+        if (!sp) return;
+        if (cult.cds[type] > 0) return;
+        if (cult.qi < sp.cost) {
+          showCultMsg("灵力不足！");
+          playQiWarning();
+          return;
+        }
+        cult.qi -= sp.cost;
+        cult.cds[type] = sp.cd;
+        cult.exp += sp.cost * 0.5;
+        updateQiBar();
+        checkBreakthrough();
+        _spellFlashEl.className = "";
+        void _spellFlashEl.offsetWidth;
+        _spellFlashEl.className = "flash-" + type;
+        _spellFlashEl.style.opacity = "1";
+        setTimeout(() => (_spellFlashEl.style.opacity = "0"), 150);
+        playSpellSound(type);
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        _xSpellOrigin.copy(camera.position).addScaledVector(dir, 0.5);
+        const origin = _xSpellOrigin;
+        const N = sp.count;
+        const geo = new THREE.BufferGeometry();
+        const positions = new Float32Array(N * 3),
+          velocities = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+          positions[i * 3] = origin.x + (Math.random() - 0.5) * 0.3;
+          positions[i * 3 + 1] = origin.y + (Math.random() - 0.5) * 0.3;
+          positions[i * 3 + 2] = origin.z + (Math.random() - 0.5) * 0.3;
+          velocities[i * 3] = dir.x * sp.speed + (Math.random() - 0.5) * 3;
+          velocities[i * 3 + 1] = dir.y * sp.speed + (Math.random() - 0.5) * 3;
+          velocities[i * 3 + 2] = dir.z * sp.speed + (Math.random() - 0.5) * 3;
+        }
+        geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        const mat = new THREE.PointsMaterial({
+          color: new THREE.Color(sp.color),
+          size: sp.size,
+          transparent: true,
+          opacity: 0.9,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const pts = new THREE.Points(geo, mat);
+        pts.userData = { vel: velocities, life: 2.0, maxLife: 2.0 };
+        scene.add(pts);
+        cult.spellParticles.push(pts);
+        const _s = _slotCache[type];
+        if (_s) {
+          _s.slot.classList.add("active");
+          setTimeout(() => _s.slot.classList.remove("active"), 300);
+        }
+      }
+      function updateSpells(dt) {
+        for (let i = cult.spellParticles.length - 1; i >= 0; i--) {
+          const p = cult.spellParticles[i];
+          p.userData.life -= dt;
+          if (p.userData.life <= 0) {
+            scene.remove(p);
+            p.geometry.dispose();
+            p.material.dispose();
+            cult.spellParticles.splice(i, 1);
+            continue;
+          }
+          const pos = p.geometry.attributes.position.array,
+            vel = p.userData.vel,
+            N = pos.length / 3;
+          const frac = p.userData.life / p.userData.maxLife;
+          p.material.opacity = frac * 0.9;
+          for (let j = 0; j < N; j++) {
+            pos[j * 3] += vel[j * 3] * dt;
+            pos[j * 3 + 1] += vel[j * 3 + 1] * dt - 0.5 * dt;
+            pos[j * 3 + 2] += vel[j * 3 + 2] * dt;
+            vel[j * 3] *= 1 - dt * 0.5;
+            vel[j * 3 + 1] *= 1 - dt * 0.5;
+            vel[j * 3 + 2] *= 1 - dt * 0.5;
+          }
+          p.geometry.attributes.position.needsUpdate = true;
+        }
+        for (const k in cult.cds) {
+          if (cult.cds[k] > 0) {
+            cult.cds[k] = Math.max(0, cult.cds[k] - dt);
+            const cached = _slotCache[k];
+            if (cached) {
+              const cd = cached.cd;
+              if (cult.cds[k] > 0) {
+                cd.style.display = "block";
+                cd.style.height = (cult.cds[k] / SPELLS[k].cd) * 100 + "%";
+              } else {
+                if (cd.style.display === "block") playCdReady();
+                cd.style.display = "none";
+              }
+            }
+          }
+        }
+        if (!cult.meditating)
+          cult.qi = Math.min(cult.maxQi, cult.qi + cult.qiRegen * dt);
+        if (cult.qi < cult.maxQi * 0.15 && cult.qi > 0) playQiWarning();
+        updateQiBar();
+      }
+
+      // ===== SWORD FLIGHT =====
+      function toggleFlight() {
+        cult.flying = !cult.flying;
+        _flyIndEl.style.display = cult.flying ? "block" : "none";
+        if (_slotCache["fly"])
+          _slotCache["fly"].slot.classList.toggle("active", cult.flying);
+        showCultMsg(cult.flying ? "御剑飞行！" : "落地");
+        playFlightToggle(cult.flying);
+        if (cult.flying && cult.meditating) toggleMeditation();
+      }
+      function updateFlight(dt) {
+        if (!cult.flying || !controls) return true;
+        const keys = window._flatKeys;
+        if (!keys) return true;
+        const spd = cult.flySpd * dt;
+        camera.getWorldDirection(_xFwdVec);
+        const fwd = _xFwdVec;
+        _xRightVec.crossVectors(fwd, _xUpVec).normalize();
+        const right = _xRightVec;
+        if (keys["w"]) {
+          camera.position.addScaledVector(fwd, spd);
+          controls.target.addScaledVector(fwd, spd);
+        }
+        if (keys["s"]) {
+          camera.position.addScaledVector(fwd, -spd * 0.6);
+          controls.target.addScaledVector(fwd, -spd * 0.6);
+        }
+        if (keys["a"]) {
+          camera.position.addScaledVector(right, -spd * 0.7);
+          controls.target.addScaledVector(right, -spd * 0.7);
+        }
+        if (keys["d"]) {
+          camera.position.addScaledVector(right, spd * 0.7);
+          controls.target.addScaledVector(right, spd * 0.7);
+        }
+        if (keys[" "]) {
+          camera.position.y += spd * 1.2;
+          controls.target.y += spd * 1.2;
+        }
+        if (keys["shift"]) {
+          camera.position.y -= spd * 1.2;
+          controls.target.y -= spd * 1.2;
+        }
+        cult.qi = Math.max(0, cult.qi - 2 * dt);
+        if (cult.qi <= 0) toggleFlight();
+        state.playerPos.copy(camera.position);
+        return true;
+      }
+
+      // ===== MEDITATION =====
+      function toggleMeditation() {
+        cult.meditating = !cult.meditating;
+        if (_slotCache["meditate"])
+          _slotCache["meditate"].slot.classList.toggle(
+            "active",
+            cult.meditating,
+          );
+        if (cult.meditating) {
+          showCultMsg("打坐修炼中... 灵气恢复加速");
+          playMeditationToggle(true);
+          _medVigEl?.classList.add("active");
+          if (!cult.medParticles) createMedParticles();
+          cult.medParticles.visible = true;
+          if (cult.flying) toggleFlight();
+        } else {
+          showCultMsg("修炼结束");
+          playMeditationToggle(false);
+          _medVigEl?.classList.remove("active");
+          if (cult.medParticles) cult.medParticles.visible = false;
+        }
+      }
+      function createMedParticles() {
+        const N = 120,
+          geo = new THREE.BufferGeometry();
+        geo.setAttribute(
+          "position",
+          new THREE.BufferAttribute(new Float32Array(N * 3), 3),
+        );
+        const mat = new THREE.PointsMaterial({
+          color: 0x00ccff,
+          size: 0.04,
+          transparent: true,
+          opacity: 0.6,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        cult.medParticles = new THREE.Points(geo, mat);
+        cult.medParticles.visible = false;
+        scene.add(cult.medParticles);
+      }
+      function updateMeditation(time, dt) {
+        if (!cult.meditating) return;
+        cult.qi = Math.min(cult.maxQi, cult.qi + cult.qiRegen * 4 * dt);
+        cult.exp += 2 * dt;
+        cult.medTimer += dt;
+        checkBreakthrough();
+        const p = cult.medParticles;
+        if (!p) return;
+        const pos = p.geometry.attributes.position.array,
+          N = pos.length / 3,
+          cam = camera.position;
+        for (let i = 0; i < N; i++) {
+          const t = i / N,
+            angle = t * Math.PI * 2 * 3 + time * 2;
+          const r = 1.0 + Math.sin(time * 3 + t * 10) * 0.4 + t * 1.5;
+          const h = (t - 0.5) * 3 + Math.sin(time * 2 + t * 5) * 0.3;
+          pos[i * 3] = cam.x + Math.cos(angle) * r;
+          pos[i * 3 + 1] = cam.y + h;
+          pos[i * 3 + 2] = cam.z + Math.sin(angle) * r;
+        }
+        p.geometry.attributes.position.needsUpdate = true;
+        p.material.color.setHSL(0.55 + Math.sin(time) * 0.05, 0.8, 0.6);
+        p.material.opacity = 0.4 + Math.sin(time * 2) * 0.2;
+      }
+
+      // ===== CULTIVATION UI =====
+      function updateQiBar() {
+        if (_qiBarEl) _qiBarEl.style.width = (cult.qi / cult.maxQi) * 100 + "%";
+      }
+      function showCultMsg(text) {
+        if (_modeIndEl) {
+          _modeIndEl.textContent = text;
+          _modeIndEl.style.display = "block";
+          clearTimeout(_modeIndEl._mt);
+          _modeIndEl._mt = setTimeout(
+            () => (_modeIndEl.style.display = "none"),
+            2000,
+          );
+        }
+      }
+      function checkBreakthrough() {
+        const next = REALMS[cult.realmIdx + 1];
+        if (!next) return;
+        if (cult.exp >= next.qi * 10) {
+          cult.realmIdx++;
+          cult.maxQi = REALMS[cult.realmIdx].qi;
+          cult.qi = cult.maxQi;
+          cult.qiRegen = 5 + cult.realmIdx * 2;
+          cult.exp = 0;
+          _btEl.querySelector("h2").textContent =
+            "突破！" + REALMS[cult.realmIdx].name;
+          _btEl.querySelector("p").textContent = "灵力上限提升至 " + cult.maxQi;
+          _btEl.style.display = "flex";
+          document.body.style.animation = "btShake 0.3s ease-in-out 2";
+          setTimeout(() => {
+            document.body.style.animation = "";
+          }, 600);
+          setTimeout(() => (_btEl.style.display = "none"), 3000);
+          if (_realmEl) {
+            _realmEl.textContent = REALMS[cult.realmIdx].name;
+            _realmEl.style.color = REALMS[cult.realmIdx].color;
+          }
+          updateQiBar();
+          showCultMsg("恭喜突破 " + REALMS[cult.realmIdx].name + "！");
+          playBreakthroughSound();
+        }
+      }
+
+      // ===== AUDIO SYSTEM =====
+      let audioCtx = null,
+        masterGain = null;
+      function initAudio() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.15;
+        masterGain.connect(audioCtx.destination);
+        const drone = audioCtx.createOscillator();
+        drone.type = "sine";
+        drone.frequency.value = 82;
+        window._xDrone = drone;
+        const dg = audioCtx.createGain();
+        dg.gain.value = 0.06;
+        const df = audioCtx.createBiquadFilter();
+        df.type = "lowpass";
+        df.frequency.value = 200;
+        drone.connect(df);
+        df.connect(dg);
+        dg.connect(masterGain);
+        drone.start();
+        // Second harmonic (matches index.html dual-drone)
+        const drone2 = audioCtx.createOscillator();
+        drone2.type = "sine";
+        drone2.frequency.value = 123;
+        window._xDrone2 = drone2;
+        const d2g = audioCtx.createGain();
+        d2g.gain.value = 0.04;
+        drone2.connect(d2g);
+        d2g.connect(masterGain);
+        drone2.start();
+      }
+      document.addEventListener("click", initAudio, { once: true });
+      document.addEventListener("touchstart", initAudio, { once: true });
+      // Drone follows formation mode
+      const DRONE_FREQS = {
+        LOTUS: [82, 123],
+        DRAGON: [98, 147],
+        SHIELD: [65, 98],
+        DAGENG: [55, 82],
+      };
+      function updateDroneMode(mode) {
+        if (!audioCtx) return;
+        if (!window._xDrone) return;
+        const f = DRONE_FREQS[mode] || DRONE_FREQS.LOTUS;
+        const t = audioCtx.currentTime;
+        window._xDrone.frequency.linearRampToValueAtTime(f[0], t + 0.5);
+        if (window._xDrone2)
+          window._xDrone2.frequency.linearRampToValueAtTime(f[1], t + 0.5);
+      }
+      let _qiWarnPlayed = false;
+      function playQiWarning() {
+        if (!audioCtx || _qiWarnPlayed) return;
+        _qiWarnPlayed = true;
+        const t = audioCtx.currentTime;
+        const o = audioCtx.createOscillator();
+        o.type = "sine";
+        o.frequency.setValueAtTime(600, t);
+        o.frequency.setValueAtTime(400, t + 0.15);
+        o.frequency.setValueAtTime(600, t + 0.3);
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.15, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        o.connect(g);
+        g.connect(masterGain);
+        o.start(t);
+        o.stop(t + 0.5);
+        setTimeout(() => {
+          _qiWarnPlayed = false;
+        }, 5000);
+      }
+      function playCdReady() {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        const o = audioCtx.createOscillator();
+        o.type = "sine";
+        o.frequency.value = 1200;
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.08, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        o.connect(g);
+        g.connect(masterGain);
+        o.start(t);
+        o.stop(t + 0.15);
+      }
+      function playSpellSound(type) {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        if (type === "fire") {
+          const o = audioCtx.createOscillator();
+          o.type = "sawtooth";
+          o.frequency.setValueAtTime(80, t);
+          o.frequency.exponentialRampToValueAtTime(400, t + 0.15);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.25, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+          const f = audioCtx.createBiquadFilter();
+          f.type = "lowpass";
+          f.frequency.value = 600;
+          o.connect(f);
+          f.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.4);
+          // Sub-rumble
+          const o2 = audioCtx.createOscillator();
+          o2.type = "sine";
+          o2.frequency.value = 55;
+          const g2 = audioCtx.createGain();
+          g2.gain.setValueAtTime(0.15, t);
+          g2.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+          o2.connect(g2);
+          g2.connect(masterGain);
+          o2.start(t);
+          o2.stop(t + 0.3);
+        } else if (type === "ice") {
+          const o = audioCtx.createOscillator();
+          o.type = "sine";
+          o.frequency.setValueAtTime(2400, t);
+          o.frequency.exponentialRampToValueAtTime(800, t + 0.5);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.12, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.5);
+          // Sparkle overtone
+          const o2 = audioCtx.createOscillator();
+          o2.type = "sine";
+          o2.frequency.setValueAtTime(4800, t);
+          o2.frequency.exponentialRampToValueAtTime(1200, t + 0.3);
+          const g2 = audioCtx.createGain();
+          g2.gain.setValueAtTime(0.06, t);
+          g2.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+          o2.connect(g2);
+          g2.connect(masterGain);
+          o2.start(t);
+          o2.stop(t + 0.3);
+        } else if (type === "lightning") {
+          const o = audioCtx.createOscillator();
+          o.type = "square";
+          o.frequency.setValueAtTime(3000, t);
+          o.frequency.exponentialRampToValueAtTime(100, t + 0.08);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.3, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.15);
+          const o2 = audioCtx.createOscillator();
+          o2.type = "sawtooth";
+          o2.frequency.value = 40;
+          const g2 = audioCtx.createGain();
+          g2.gain.setValueAtTime(0.001, t);
+          g2.gain.linearRampToValueAtTime(0.2, t + 0.05);
+          g2.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+          const f2 = audioCtx.createBiquadFilter();
+          f2.type = "lowpass";
+          f2.frequency.value = 200;
+          o2.connect(f2);
+          f2.connect(g2);
+          g2.connect(masterGain);
+          o2.start(t);
+          o2.stop(t + 0.6);
+        } else if (type === "sword") {
+          const o = audioCtx.createOscillator();
+          o.type = "triangle";
+          o.frequency.setValueAtTime(600, t);
+          o.frequency.exponentialRampToValueAtTime(1800, t + 0.1);
+          o.frequency.exponentialRampToValueAtTime(300, t + 0.3);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.2, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.35);
+        }
+      }
+      function playBreakthroughSound() {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        [261.6, 329.6, 392.0, 523.3].forEach((freq, i) => {
+          const o = audioCtx.createOscillator();
+          o.type = "sine";
+          o.frequency.value = freq;
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.001, t + i * 0.2);
+          g.gain.linearRampToValueAtTime(0.15, t + i * 0.2 + 0.1);
+          g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.2 + 1.5);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t + i * 0.2);
+          o.stop(t + i * 0.2 + 1.5);
+        });
+        // Golden shimmer overtone
+        const o = audioCtx.createOscillator();
+        o.type = "sine";
+        o.frequency.value = 1046.5;
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.001, t + 0.8);
+        g.gain.linearRampToValueAtTime(0.1, t + 1.0);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 2.5);
+        o.connect(g);
+        g.connect(masterGain);
+        o.start(t + 0.8);
+        o.stop(t + 2.5);
+      }
+      function playMeditationToggle(start) {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        if (start) {
+          const o = audioCtx.createOscillator();
+          o.type = "sine";
+          o.frequency.setValueAtTime(220, t);
+          o.frequency.linearRampToValueAtTime(330, t + 0.8);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.001, t);
+          g.gain.linearRampToValueAtTime(0.1, t + 0.4);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 1.5);
+        } else {
+          const o = audioCtx.createOscillator();
+          o.type = "sine";
+          o.frequency.setValueAtTime(330, t);
+          o.frequency.exponentialRampToValueAtTime(165, t + 0.5);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.08, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.5);
+        }
+      }
+      function playFlightToggle(start) {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        if (start) {
+          const o = audioCtx.createOscillator();
+          o.type = "sawtooth";
+          o.frequency.setValueAtTime(100, t);
+          o.frequency.exponentialRampToValueAtTime(800, t + 0.3);
+          const f = audioCtx.createBiquadFilter();
+          f.type = "bandpass";
+          f.frequency.setValueAtTime(300, t);
+          f.frequency.exponentialRampToValueAtTime(1200, t + 0.3);
+          f.Q.value = 2;
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.001, t);
+          g.gain.linearRampToValueAtTime(0.15, t + 0.15);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+          o.connect(f);
+          f.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.5);
+        } else {
+          const o = audioCtx.createOscillator();
+          o.type = "sawtooth";
+          o.frequency.setValueAtTime(600, t);
+          o.frequency.exponentialRampToValueAtTime(80, t + 0.4);
+          const f = audioCtx.createBiquadFilter();
+          f.type = "bandpass";
+          f.frequency.value = 400;
+          f.Q.value = 2;
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.12, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+          o.connect(f);
+          f.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.4);
+        }
+      }
+      function playModeSwitch() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(
+          880,
+          audioCtx.currentTime + 0.15,
+        );
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      }
+
+      // P1: Cache all DOM refs (avoid per-call getElementById/querySelector)
+      const _slotCache = {};
+      document.querySelectorAll(".skill-slot[data-skill]").forEach((el) => {
+        _slotCache[el.dataset.skill] = {
+          slot: el,
+          cd: el.querySelector(".cd-overlay"),
+        };
+      });
+      const _qiBarEl = document.getElementById("qi-bar");
+      const _modeIndEl = document.getElementById("mode-indicator");
+      const _flyIndEl = document.getElementById("fly-indicator");
+      const _spellFlashEl = document.getElementById("spell-flash");
+      const _realmEl = document.getElementById("realm-display");
+      const _btEl = document.getElementById("breakthrough");
+      const _medVigEl = document.getElementById("med-vignette");
+      const _hudSceneEl = document.getElementById("hud-scene");
+      const _hudModeEl = document.getElementById("hud-mode");
+      const _hudFpsEl = document.getElementById("hud-fps");
+
+      // Expose to window for HTML onclick + testability
+      window._castSpell = castSpell;
+      window._toggleFlight = toggleFlight;
+      window._toggleMeditation = toggleMeditation;
+      window.cult = cult;
+      window.state = state;
+      window.scene = scene;
+
+      // ===== WEBXR SETUP =====
+      let controller1, controller2;
+      let xrHands = null;
+      let fpsMovement = null;
+      const _gpBtnPrev = { rA: false, rB: false, lX: false, lY: false };
+
+      // B3: Haptic feedback for Quest 3 controllers
+      function triggerHaptic(controller) {
+        try {
+          const session = renderer.xr.getSession();
+          if (!session) return;
+          for (const source of session.inputSources) {
+            if (source.gamepad && source.handedness) {
+              const ctrl =
+                source.handedness === "left" ? controller1 : controller2;
+              if (
+                ctrl === controller &&
+                source.gamepad.hapticActuators?.length > 0
+              ) {
+                source.gamepad.hapticActuators[0].pulse(0.6, 100);
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      function setupXRInputs() {
+        controller1 = renderer.xr.getController(0);
+        controller2 = renderer.xr.getController(1);
+        scene.add(controller1);
+        scene.add(controller2);
+
+        // Controller rays
+        const rayGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, 0),
+          new THREE.Vector3(0, 0, -3),
+        ]);
+        const rayMat = new THREE.LineBasicMaterial({
+          color: 0x00ff88,
+          transparent: true,
+          opacity: 0.4,
+        });
+        controller1.add(new THREE.Line(rayGeo.clone(), rayMat.clone()));
+        controller2.add(new THREE.Line(rayGeo.clone(), rayMat.clone()));
+
+        controller1.addEventListener("selectstart", cycleMode);
+        controller2.addEventListener("selectstart", cycleMode);
+        controller1.addEventListener("squeezestart", () => cycleScene(1));
+        controller2.addEventListener("squeezestart", () => cycleScene(-1));
+
+        // SparkJS XR Hands — proper ghost hand rendering in VR
+        xrHands = new XrHands();
+        const handMesh = xrHands.makeGhostMesh();
+        handMesh.editable = false;
+        localFrame.add(handMesh);
+
+        // FPS movement for VR thumbstick locomotion
+        fpsMovement = new FpsMovement({ moveSpeed: 3.0, xr: renderer.xr });
+
+        camera.add(createHUD());
+      }
+
+      function createHUD() {
+        const canvas = document.createElement("canvas");
+        canvas.width = 256;
+        canvas.height = 64;
+        const ctx = canvas.getContext("2d");
+        const tex = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: tex,
+            transparent: true,
+            opacity: 0.85,
+          }),
+        );
+        sprite.scale.set(0.4, 0.1, 1);
+        sprite.position.set(0, -0.12, -0.5);
+        sprite.userData = { canvas, ctx, tex };
+        return sprite;
+      }
+
+      let _vrHudSprite = null;
+      let _xHudLastMode = "",
+        _xHudLastScene = "";
+      function updateVRHUD() {
+        if (!_vrHudSprite)
+          _vrHudSprite = camera.children.find((c) => c.userData?.canvas);
+        const hud = _vrHudSprite;
+        if (!hud) return;
+        const curMode = state.gestureMode,
+          curScene = _hudSceneEl?.textContent || "";
+        if (curMode === _xHudLastMode && curScene === _xHudLastScene) return;
+        _xHudLastMode = curMode;
+        _xHudLastScene = curScene;
+        const { ctx, canvas, tex } = hud.userData;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.beginPath();
+        ctx.roundRect(0, 0, canvas.width, canvas.height, 10);
+        ctx.fill();
+        ctx.fillStyle = modeColors[state.gestureMode] || "#00ff88";
+        ctx.font = "bold 20px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          modeNames[state.gestureMode] || state.gestureMode,
+          canvas.width / 2,
+          28,
+        );
+        ctx.fillStyle = "#aaa";
+        ctx.font = "14px sans-serif";
+        const sceneName = _hudSceneEl?.textContent?.replace("🌍 ", "") || "";
+        ctx.fillText(sceneName.substring(0, 30), canvas.width / 2, 50);
+        tex.needsUpdate = true;
+      }
+
+      // ===== MODE & SCENE CYCLING =====
+      const modeOrder = ["LOTUS", "DRAGON", "SHIELD", "DAGENG"];
+      function cycleMode() {
+        const idx = modeOrder.indexOf(state.gestureMode);
+        state.gestureMode = modeOrder[(idx + 1) % modeOrder.length];
+        state.isTracking = true;
+        updateModeUI();
+        playModeSwitch();
+        updateDroneMode(state.gestureMode);
+      }
+
+      function cycleScene(dir) {
+        if (state.scenes.length < 2) return;
+        const idx = state.scenes.findIndex(
+          (s) => s.id === state.currentWorldId,
+        );
+        const next = (idx + dir + state.scenes.length) % state.scenes.length;
+        loadWorld(state.scenes[next].id, state.quality);
+      }
+
+      function updateModeUI() {
+        if (_hudModeEl)
+          _hudModeEl.textContent =
+            modeNames[state.gestureMode] || state.gestureMode;
+        const ind = _modeIndEl;
+        if (ind) {
+          ind.textContent = modeNames[state.gestureMode];
+          ind.style.color = modeColors[state.gestureMode];
+          ind.style.display = "block";
+          clearTimeout(ind._mt);
+          ind._mt = setTimeout(() => (ind.style.display = "none"), 2000);
+        }
+      }
+
+      // ===== FLAT MODE CONTROLS =====
+      function enableFlatMode() {
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.maxPolarAngle = Math.PI * 0.85;
+        controls.minDistance = 0.5;
+        controls.maxDistance = 50;
+        controls.target.set(0, 1.2, 0);
+
+        // WASD movement
+        const keys = {};
+        document.addEventListener("keydown", (e) => {
+          keys[e.key.toLowerCase()] = true;
+        });
+        document.addEventListener("keyup", (e) => {
+          keys[e.key.toLowerCase()] = false;
+        });
+
+        window._flatKeys = keys;
+
+        // Show controls hint, fade after 4s
+        const hint = document.getElementById("controls-hint");
+        hint.style.display = "block";
+        hint.style.opacity = "0.85";
+        setTimeout(() => {
+          hint.style.opacity = "0";
+          setTimeout(() => (hint.style.display = "none"), 2000);
+        }, 4000);
+
+        // Double-click to switch mode
+        renderer.domElement.addEventListener("dblclick", cycleMode);
+
+        // Cultivation + scene controls
+        document.addEventListener("keydown", (e) => {
+          const k = e.key.toLowerCase();
+          // Spells: 1-4
+          if (k === "1") castSpell("fire");
+          else if (k === "2") castSpell("ice");
+          else if (k === "3") castSpell("lightning");
+          else if (k === "4") castSpell("sword");
+          // Scenes: 5-9 (first 5), 0 (6th), - (7th), = (8th)
+          else if (k >= "5" && k <= "9") {
+            const idx = parseInt(k) - 5;
+            if (state.scenes[idx])
+              loadWorld(state.scenes[idx].id, state.quality);
+          } else if (k === "0" && state.scenes[5])
+            loadWorld(state.scenes[5].id, state.quality);
+          else if (k === "-" && state.scenes[6])
+            loadWorld(state.scenes[6].id, state.quality);
+          else if (k === "=" && state.scenes[7])
+            loadWorld(state.scenes[7].id, state.quality);
+          else if (k === "[" && state.scenes[8])
+            loadWorld(state.scenes[8].id, state.quality);
+          else if (k === "]" && state.scenes[9])
+            loadWorld(state.scenes[9].id, state.quality);
+          else if (k === ";" && state.scenes[10])
+            loadWorld(state.scenes[10].id, state.quality);
+          else if (k === "'" && state.scenes[11])
+            loadWorld(state.scenes[11].id, state.quality);
+          // Cultivation actions
+          else if (k === "f") toggleFlight();
+          else if (k === "m") toggleMeditation();
+          // Formation/quality
+          else if (k === "q") cycleMode();
+          else if (k === "e") {
+            state.quality =
+              state.quality === "low"
+                ? "medium"
+                : state.quality === "medium"
+                  ? "high"
+                  : "low";
+            updateQualityHUD();
+            loadWorld(state.currentWorldId, state.quality);
+          }
+        });
+      }
+
+      function updateFlatMovement(delta) {
+        const keys = window._flatKeys;
+        if (!keys || !controls) return;
+        const speed = 3 * delta;
+        camera.getWorldDirection(_xFwdVec);
+        _xFwdVec.y = 0;
+        _xFwdVec.normalize();
+        const forward = _xFwdVec;
+        _xRightVec.crossVectors(forward, _xUpVec);
+        const right = _xRightVec;
+
+        if (keys["w"]) {
+          camera.position.addScaledVector(forward, speed);
+          controls.target.addScaledVector(forward, speed);
+        }
+        if (keys["s"]) {
+          camera.position.addScaledVector(forward, -speed);
+          controls.target.addScaledVector(forward, -speed);
+        }
+        if (keys["a"]) {
+          camera.position.addScaledVector(right, -speed);
+          controls.target.addScaledVector(right, -speed);
+        }
+        if (keys["d"]) {
+          camera.position.addScaledVector(right, speed);
+          controls.target.addScaledVector(right, speed);
+        }
+        if (keys[" "]) {
+          camera.position.y += speed;
+          controls.target.y += speed;
+        }
+        if (keys["shift"]) {
+          camera.position.y -= speed;
+          controls.target.y -= speed;
+        }
+
+        state.playerPos.copy(camera.position);
+      }
+
+      // ===== UI HELPERS =====
+      function updateQualityHUD() {
+        const el = document.getElementById("hud-quality");
+        if (el)
+          el.textContent =
+            state.quality === "low"
+              ? "●○○"
+              : state.quality === "medium"
+                ? "●●○"
+                : "●●●";
+      }
+      function showLoading(show, text) {
+        const el = document.getElementById("loading-text");
+        el.style.display = show ? "block" : "none";
+        if (text) el.textContent = text;
+      }
+      function setLoadProgress(pct) {
+        document.getElementById("loading-bar").style.width = pct + "%";
+        if (pct >= 100)
+          setTimeout(
+            () => (document.getElementById("loading-bar").style.width = "0"),
+            1000,
+          );
+      }
+
+      function updateSceneSwitcher() {
+        const sw = document.getElementById("scene-switcher");
+        sw.innerHTML = "";
+        state.scenes.forEach((s, i) => {
+          const dot = document.createElement("div");
+          dot.className =
+            "scene-dot" + (s.id === state.currentWorldId ? " active" : "");
+          dot.title = SCENE_CN[s.id] || s.name;
+          if (s.thumbnail) {
+            const img = document.createElement("img");
+            img.src = s.thumbnail;
+            img.alt = s.name;
+            dot.appendChild(img);
+          }
+          dot.onclick = () => loadWorld(s.id, state.quality);
+          sw.appendChild(dot);
+        });
+      }
+
+      // ===== INIT =====
+      async function init() {
+        showLoading(true, "初始化修仙界...");
+
+        // Load SparkJS
+        const sparkOk = await loadSparkJS();
+        if (!sparkOk)
+          console.warn("⚠️ SparkJS unavailable — will use fallback rendering");
+
+        // Use embedded scenes (standalone) or fetch from Hub API (localhost dev)
+        if (EMBEDDED_SCENES.length > 0) {
+          state.scenes = EMBEDDED_SCENES;
+          console.log(`📦 ${EMBEDDED_SCENES.length} embedded scenes loaded`);
+        } else {
+          try {
+            const resp = await fetch("/api/curated?limit=15");
+            const data = await resp.json();
+            state.scenes = data.scenes?.filter((s) => !s.error) || [];
+          } catch (e) {
+            console.warn("Failed to fetch curated scenes:", e);
+            state.scenes = [
+              {
+                id: CFG.defaultWorldId,
+                name: "Celestial Garden",
+                thumbnail: null,
+                spz: {},
+              },
+            ];
+          }
+        }
+
+        // Build gallery
+        const gallery = document.getElementById("scene-gallery");
+        state.scenes.forEach((s, i) => {
+          const card = document.createElement("div");
+          card.className = "scene-card" + (i === 0 ? " active" : "");
+          card.innerHTML = `${s.thumbnail ? `<img src="${s.thumbnail}" alt="${s.name}" loading="lazy">` : '<div style="background:#1a1a2e;height:100%;display:flex;align-items:center;justify-content:center">🌍</div>'}
+      <div class="label">${SCENE_CN[s.id] || s.name || "Unknown"}</div>`;
+          card.onclick = () => {
+            document
+              .querySelectorAll(".scene-card")
+              .forEach((c) => c.classList.remove("active"));
+            card.classList.add("active");
+            state.currentWorldId = s.id;
+          };
+          gallery.appendChild(card);
+        });
+
+        if (state.scenes.length > 0) {
+          state.currentWorldId = state.scenes[0].id;
+        }
+
+        // Setup XR
+        setupXRInputs();
+
+        // SparkJS VR Button — optimized for 3DGS VR rendering
+        const vrButtonEl = VRButton.createButton(renderer, {
+          optionalFeatures: [
+            "local-floor",
+            "bounded-floor",
+            "hand-tracking",
+            "layers",
+          ],
+        });
+        if (vrButtonEl) {
+          vrButtonEl.style.display = "none";
+          document.body.appendChild(vrButtonEl);
+        }
+
+        const vrBtn = document.getElementById("enterVR");
+        const flatBtn = document.getElementById("enterFlat");
+
+        // Check VR support
+        checkVRSupport(vrBtn, vrButtonEl);
+
+        flatBtn.onclick = () => {
+          document.getElementById("overlay").classList.add("hidden");
+          document.getElementById("hud").style.display = "flex";
+          document.getElementById("scene-switcher").style.display = "flex";
+          enableFlatMode();
+          if (!cult.atmosParticles) createAtmosphericParticles();
+          document.getElementById("cultivation-hud").style.display = "flex";
+          loadWorld(state.currentWorldId, state.quality);
+        };
+
+        showLoading(false);
+
+        // XR session events
+        renderer.xr.addEventListener("sessionstart", () => {
+          state.isVR = true;
+          initAudio();
+          document.getElementById("overlay").classList.add("hidden");
+          document.getElementById("hud").style.display = "none";
+          document.getElementById("cultivation-hud").style.display = "flex";
+          scene.fog.near = 40;
+          scene.fog.far = 150;
+          if (!cult.atmosParticles) createAtmosphericParticles();
+          if (!state.currentWorldId)
+            loadWorld(CFG.defaultWorldId, state.quality);
+          console.log("🥽 VR session started");
+        });
+        renderer.xr.addEventListener("sessionend", () => {
+          state.isVR = false;
+          document.getElementById("hud").style.display = "flex";
+          scene.fog.near = 15;
+          scene.fog.far = 80;
+        });
+      }
+
+      async function checkVRSupport(btn, vrButtonEl) {
+        for (let i = 0; i < 6; i++) {
+          try {
+            if (navigator.xr) {
+              const ok = await navigator.xr.isSessionSupported("immersive-vr");
+              if (ok) {
+                btn.textContent = "进入VR修仙";
+                btn.disabled = false;
+                btn.onclick = () => {
+                  initAudio();
+                  vrButtonEl.click();
+                  document.getElementById("overlay").classList.add("hidden");
+                  document.getElementById("scene-switcher").style.display =
+                    "flex";
+                  document.getElementById("cultivation-hud").style.display =
+                    "flex";
+                  if (!cult.atmosParticles) createAtmosphericParticles();
+                  loadWorld(state.currentWorldId, state.quality);
+                };
+                return;
+              }
+            }
+          } catch (e) {}
+          await new Promise((r) => setTimeout(r, 400 * Math.pow(1.5, i)));
+        }
+        btn.textContent = navigator.xr ? "VR不可用" : "WebXR不支持";
+      }
+
+      // ===== RENDER LOOP =====
+      const clock = new THREE.Clock();
+      let lastTime = 0,
+        fpsCount = 0,
+        fpsLast = performance.now();
+
+      renderer.setAnimationLoop((timestamp, frame) => {
+        const time = clock.getElapsedTime();
+        const delta = time - lastTime;
+        lastTime = time;
+
+        // localFrame compensation — essential for floating-point precision in large splat scenes
+        if (lastCameraPos.distanceTo(camera.position) > 0.5) {
+          localFrame.position.copy(camera.position).multiplyScalar(-1);
+        }
+        lastCameraPos.copy(camera.position);
+
+        // XR input
+        if (state.isVR && frame) {
+          // SparkJS XR Hands update
+          if (xrHands) {
+            xrHands.update({ xr: renderer.xr, xrFrame: frame });
+          }
+          // B4: VR flight speed multiplier (set before update)
+          if (fpsMovement) {
+            fpsMovement.moveSpeed = cult.flying ? 12.0 : 3.0;
+            fpsMovement.update(delta, localFrame);
+          }
+          // B2: VR flight qi consumption
+          if (cult.flying) {
+            cult.qi = Math.max(0, cult.qi - 2 * delta);
+            if (cult.qi <= 0) toggleFlight();
+          }
+          // Controller target tracking + B1: VR button handling
+          const session = renderer.xr.getSession();
+          if (session) {
+            for (const src of session.inputSources) {
+              if (src.gamepad && src.gripSpace) {
+                const gp = src.gamepad;
+                const ctrl =
+                  src.handedness === "left" ? controller1 : controller2;
+                if (ctrl) {
+                  ctrl.getWorldPosition(_xCtrlPos);
+                  if (_xCtrlPos.length() > 0.1) {
+                    state.targetPosition.lerp(_xCtrlPos, 0.08);
+                    state.isTracking = true;
+                  }
+                }
+                // B1: A/B/X/Y buttons for spells/flight/meditation
+                if (gp.buttons.length > 4) {
+                  if (src.handedness === "right") {
+                    if (gp.buttons[4]?.pressed && !_gpBtnPrev.rA) {
+                      castSpell(spellOrder[cult.currentSpellIdx]);
+                      triggerHaptic(controller2);
+                    }
+                    _gpBtnPrev.rA = !!gp.buttons[4]?.pressed;
+                    if (gp.buttons[5]?.pressed && !_gpBtnPrev.rB) {
+                      cult.currentSpellIdx =
+                        (cult.currentSpellIdx + 1) % spellOrder.length;
+                      showCultMsg(
+                        SPELLS[spellOrder[cult.currentSpellIdx]].name,
+                      );
+                    }
+                    _gpBtnPrev.rB = !!gp.buttons[5]?.pressed;
+                  } else {
+                    if (gp.buttons[4]?.pressed && !_gpBtnPrev.lX) {
+                      toggleFlight();
+                      triggerHaptic(controller1);
+                    }
+                    _gpBtnPrev.lX = !!gp.buttons[4]?.pressed;
+                    if (gp.buttons[5]?.pressed && !_gpBtnPrev.lY) {
+                      toggleMeditation();
+                      triggerHaptic(controller1);
+                    }
+                    _gpBtnPrev.lY = !!gp.buttons[5]?.pressed;
+                  }
+                }
+                break;
+              }
+            }
+          }
+          updateVRHUD();
+        } else {
+          if (cult.flying) updateFlight(delta);
+          else updateFlatMovement(delta);
+        }
+
+        updateSwords(time, delta);
+        updateAtmosParticles(time, delta);
+        updateSpells(delta);
+        updateMeditation(time, delta);
+        if (controls) controls.update();
+
+        // FPS counter
+        fpsCount++;
+        if (performance.now() - fpsLast >= 1000) {
+          const fps = fpsCount;
+          fpsCount = 0;
+          fpsLast = performance.now();
+          if (fps < 30 && adaptiveSwordCount > 15)
+            adaptiveSwordCount = Math.max(15, adaptiveSwordCount - 5);
+          else if (fps > 50 && adaptiveSwordCount < CFG.swordCount)
+            adaptiveSwordCount = Math.min(
+              CFG.swordCount,
+              adaptiveSwordCount + 3,
+            );
+          if (_hudFpsEl)
+            _hudFpsEl.textContent = `${adaptiveSwordCount}剑 ${fps}FPS`;
+        }
+
+        renderer.render(scene, camera);
+      });
+
+      window.addEventListener("resize", () => {
+        const w = window.innerWidth,
+          h = window.innerHeight;
+        if (w > 0 && h > 0) {
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        }
+      });
+
+      // Boot
+      init();
+    </script>
+  </body>
+</html>

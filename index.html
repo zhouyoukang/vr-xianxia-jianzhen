@@ -1,0 +1,3593 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>"
+    />
+    <title>VR 大庚剑阵 · 青竹蜂云剑</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #030810;
+        color: #fff;
+        font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        overflow: hidden;
+        touch-action: none;
+      }
+      #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(0, 40, 20, 0.4) 0%,
+          rgba(3, 8, 16, 0.95) 70%
+        );
+        transition: opacity 0.5s;
+      }
+      #overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      h1 {
+        font-size: clamp(2rem, 6vw, 4rem);
+        color: #00ff88;
+        text-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+        margin-bottom: 0.5em;
+        letter-spacing: 0.1em;
+      }
+      .subtitle {
+        font-size: 1.1rem;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 2em;
+        text-align: center;
+        line-height: 1.8;
+      }
+      #enterVR {
+        padding: 18px 48px;
+        font-size: 1.3rem;
+        background: linear-gradient(135deg, #00ff88, #00cc66);
+        color: #030810;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+        transition: all 0.3s;
+        box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+      }
+      #enterVR:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 50px rgba(0, 255, 136, 0.5);
+      }
+      #enterVR:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+      }
+      #enterFlat {
+        padding: 12px 36px;
+        font-size: 1rem;
+        background: transparent;
+        color: #00ff88;
+        border: 1px solid rgba(0, 255, 136, 0.4);
+        border-radius: 50px;
+        cursor: pointer;
+        margin-top: 1em;
+        transition: all 0.3s;
+      }
+      #enterFlat:hover {
+        background: rgba(0, 255, 136, 0.1);
+      }
+      #status {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        padding: 8px 16px;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 20px;
+        font-size: 13px;
+        z-index: 20;
+        transition: color 0.3s;
+      }
+      #modeUI {
+        position: fixed;
+        bottom: 90px;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        z-index: 20;
+        text-shadow: 0 0 10px #00ff88;
+        pointer-events: none;
+      }
+      #modeUI h2 {
+        font-size: 1.6rem;
+        margin-bottom: 6px;
+        transition: color 0.3s;
+      }
+      #modeUI p {
+        font-size: 0.85rem;
+        opacity: 0.65;
+      }
+      .gesture-guide {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 1.5em;
+        max-width: 400px;
+      }
+      .gesture-item {
+        padding: 10px 16px;
+        background: rgba(0, 255, 136, 0.08);
+        border: 1px solid rgba(0, 255, 136, 0.2);
+        border-radius: 12px;
+        text-align: center;
+        font-size: 0.85rem;
+        line-height: 1.5;
+      }
+      .gesture-item .icon {
+        font-size: 1.5rem;
+        display: block;
+        margin-bottom: 4px;
+      }
+      #info {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        padding: 8px 14px;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 12px;
+        font-size: 11px;
+        z-index: 20;
+        color: rgba(255, 255, 255, 0.5);
+      }
+      /* ===== CULTIVATION SYSTEM ===== */
+      #cultivation-hud {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 60;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        pointer-events: none;
+      }
+      #qi-bar-container {
+        width: 240px;
+        height: 12px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 6px;
+        border: 1px solid rgba(0, 200, 255, 0.3);
+        overflow: hidden;
+        backdrop-filter: blur(4px);
+      }
+      #qi-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #0088ff, #00ccff, #88eeff);
+        border-radius: 6px;
+        transition: width 0.3s;
+        width: 100%;
+        box-shadow: 0 0 8px rgba(0, 136, 255, 0.5);
+      }
+      #realm-display {
+        font-size: 12px;
+        color: #88eeff;
+        text-shadow: 0 0 12px rgba(0, 200, 255, 0.6);
+        letter-spacing: 2px;
+        font-weight: bold;
+      }
+      #skill-bar {
+        display: flex;
+        gap: 5px;
+        pointer-events: auto;
+      }
+      .skill-slot {
+        width: 38px;
+        height: 38px;
+        border-radius: 7px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.2s;
+        backdrop-filter: blur(4px);
+      }
+      .skill-slot:hover {
+        border-color: #00ff88;
+        transform: scale(1.1);
+      }
+      .skill-slot.active {
+        border-color: #ffaa44;
+        box-shadow: 0 0 12px rgba(255, 170, 68, 0.4);
+      }
+      .skill-slot.cooldown {
+        opacity: 0.5;
+      }
+      .skill-slot .cd-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 0 0 5px 5px;
+        display: none;
+      }
+      .skill-slot .key-hint {
+        position: absolute;
+        top: -7px;
+        right: -3px;
+        font-size: 8px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 1px 3px;
+        border-radius: 3px;
+        color: #aaa;
+      }
+      #fly-indicator {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 55;
+        display: none;
+        font-size: 20px;
+        color: #00ccff;
+        text-shadow: 0 0 25px #0088ff;
+        animation: flyPulse 1.5s ease-in-out infinite;
+        pointer-events: none;
+      }
+      @keyframes flyPulse {
+        0%,
+        100% {
+          opacity: 0.6;
+          transform: translate(-50%, -50%) scale(1);
+        }
+        50% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1.1);
+        }
+      }
+      #spell-flash {
+        position: fixed;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .flash-fire {
+        background: radial-gradient(
+          circle at center,
+          rgba(255, 100, 0, 0.3),
+          transparent 70%
+        );
+      }
+      .flash-ice {
+        background: radial-gradient(
+          circle at center,
+          rgba(0, 180, 255, 0.3),
+          transparent 70%
+        );
+      }
+      .flash-lightning {
+        background: radial-gradient(
+          circle at center,
+          rgba(200, 150, 255, 0.4),
+          transparent 70%
+        );
+      }
+      .flash-sword {
+        background: radial-gradient(
+          circle at center,
+          rgba(0, 255, 136, 0.3),
+          transparent 70%
+        );
+      }
+      #breakthrough {
+        position: fixed;
+        inset: 0;
+        z-index: 300;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        background: radial-gradient(
+          ellipse,
+          rgba(255, 215, 0, 0.15),
+          rgba(0, 0, 0, 0.95)
+        );
+        animation: btFade 3s forwards;
+        pointer-events: none;
+      }
+      @keyframes btFade {
+        0% {
+          opacity: 0;
+        }
+        15% {
+          opacity: 1;
+        }
+        85% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+      #breakthrough h2 {
+        font-size: 32px;
+        color: #ffd700;
+        text-shadow: 0 0 40px #ffd700;
+        margin-bottom: 10px;
+      }
+      #breakthrough p {
+        font-size: 16px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+      .nav-link {
+        display: inline-block;
+        margin-top: 1.5em;
+        padding: 10px 28px;
+        font-size: 0.9rem;
+        color: #88ccff;
+        border: 1px solid rgba(136, 204, 255, 0.3);
+        border-radius: 50px;
+        text-decoration: none;
+        transition: all 0.3s;
+      }
+      .nav-link:hover {
+        background: rgba(136, 204, 255, 0.1);
+        border-color: #88ccff;
+        color: #bbddff;
+      }
+      #controls-hint {
+        position: fixed;
+        bottom: 70px;
+        right: 12px;
+        z-index: 60;
+        padding: 8px 12px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 10px;
+        font-size: 10px;
+        line-height: 1.6;
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(0, 255, 136, 0.15);
+        transition: opacity 2s;
+        display: none;
+      }
+      @keyframes btShake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-4px) rotate(-0.5deg);
+        }
+        75% {
+          transform: translateX(4px) rotate(0.5deg);
+        }
+      }
+      #med-vignette {
+        position: fixed;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.8s;
+        background: radial-gradient(
+          ellipse at center,
+          transparent 50%,
+          rgba(0, 100, 255, 0.12) 100%
+        );
+      }
+      #med-vignette.active {
+        opacity: 1;
+      }
+    </style>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="https://unpkg.com" crossorigin />
+    <link rel="preconnect" href="https://esm.sh" crossorigin />
+  </head>
+  <body>
+    <div id="overlay">
+      <h1>青竹蜂云剑</h1>
+      <p class="subtitle">大庚剑阵 · 万设备修仙体验<br />自动适配 · 无为而入</p>
+      <button id="enterVR" disabled>感知设备能力中...</button>
+      <button id="enterFlat">平面模式体验</button>
+      <a class="nav-link" href="xianxia_worldlabs.html"
+        >🌍 进入修仙界 · 万界穿梭</a
+      >
+      <div class="gesture-guide">
+        <div class="gesture-item">
+          <span class="icon">🐉</span>剑指 · 游龙随行
+        </div>
+        <div class="gesture-item">
+          <span class="icon">🌸</span>张掌 · 莲花现世
+        </div>
+        <div class="gesture-item">
+          <span class="icon">🛡️</span>握拳 · 剑盾护体
+        </div>
+        <div class="gesture-item">
+          <span class="icon">🤘</span>结印 · 大庚剑阵
+        </div>
+      </div>
+    </div>
+
+    <div id="status" style="color: #ff6666">⏳ 道·感知中...</div>
+    <div id="modeUI">
+      <h2 style="color: #00ff88">青竹蜂云剑</h2>
+      <p>请伸出手掌激活飞剑...</p>
+    </div>
+    <div id="info"></div>
+
+    <div id="cultivation-hud">
+      <div id="realm-display">炼气一层</div>
+      <div id="qi-bar-container"><div id="qi-bar"></div></div>
+      <div id="skill-bar">
+        <div
+          class="skill-slot"
+          data-skill="fire"
+          onclick="window._castSpell('fire')"
+          title="火球术 (1)"
+        >
+          🔥<span class="key-hint">1</span>
+          <div class="cd-overlay"></div>
+        </div>
+        <div
+          class="skill-slot"
+          data-skill="ice"
+          onclick="window._castSpell('ice')"
+          title="冰封术 (2)"
+        >
+          ❄️<span class="key-hint">2</span>
+          <div class="cd-overlay"></div>
+        </div>
+        <div
+          class="skill-slot"
+          data-skill="lightning"
+          onclick="window._castSpell('lightning')"
+          title="雷法 (3)"
+        >
+          ⚡<span class="key-hint">3</span>
+          <div class="cd-overlay"></div>
+        </div>
+        <div
+          class="skill-slot"
+          data-skill="sword"
+          onclick="window._castSpell('sword')"
+          title="剑气 (4)"
+        >
+          ⚔️<span class="key-hint">4</span>
+          <div class="cd-overlay"></div>
+        </div>
+        <div
+          class="skill-slot"
+          data-skill="fly"
+          onclick="window._toggleFlight()"
+          title="御剑飞行 (F)"
+        >
+          🗡️<span class="key-hint">F</span>
+        </div>
+        <div
+          class="skill-slot"
+          data-skill="meditate"
+          onclick="window._toggleMeditation()"
+          title="打坐修炼 (M)"
+        >
+          🧘<span class="key-hint">M</span>
+        </div>
+      </div>
+    </div>
+    <div id="fly-indicator">⚔️ 御剑飞行中</div>
+    <div id="spell-flash"></div>
+    <div id="breakthrough">
+      <h2></h2>
+      <p></p>
+    </div>
+    <div id="med-vignette"></div>
+    <div id="controls-hint">
+      <b style="color: #00ff88">修仙操控</b><br />WASD移动 Space↑ Shift↓<br />1🔥火球
+      2❄️冰封 3⚡雷法 4⚔️剑气<br />F御剑飞行 M打坐修炼 双击切阵
+    </div>
+
+    <!-- ╔═══════════════════════════════════════════════════════════╗
+         ║  道·源 DaoSource — CDN自适应: 万源归一 · 唯变所适         ║
+         ║  Three CDNs race; the fastest wins. If all fail, rotate.  ║
+         ╚═══════════════════════════════════════════════════════════╝ -->
+    <script>
+      (function () {
+        var CDNS = [
+          [
+            "jsdelivr",
+            "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js",
+            "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/",
+          ],
+          [
+            "unpkg",
+            "https://unpkg.com/three@0.178.0/build/three.module.js",
+            "https://unpkg.com/three@0.178.0/examples/jsm/",
+          ],
+          [
+            "esm.sh",
+            "https://esm.sh/three@0.178.0/build/three.module.js",
+            "https://esm.sh/three@0.178.0/examples/jsm/",
+          ],
+        ];
+        // Read CDN preference from URL (?cdn=0|1|2)
+        var params = new URLSearchParams(location.search);
+        var pref = parseInt(params.get("cdn") || "0", 10);
+        if (pref < 0 || pref >= CDNS.length) pref = 0;
+        var cdn = CDNS[pref];
+        window._daoCdnIdx = pref;
+        window._daoCdnName = cdn[0];
+        // Inject importmap dynamically — runs before any module script
+        var im = document.createElement("script");
+        im.type = "importmap";
+        im.textContent = JSON.stringify({
+          imports: { three: cdn[1], "three/addons/": cdn[2] },
+        });
+        document.currentScript.after(im);
+        console.log("道·源 CDN:", cdn[0], "(index", pref + ")");
+      })();
+    </script>
+    <script>
+      // 道·源 fallback — if Three.js fails to load, rotate CDN and reload
+      setTimeout(function () {
+        if (!window._threeLoaded) {
+          var next = ((window._daoCdnIdx || 0) + 1) % 3;
+          var params = new URLSearchParams(location.search);
+          var tried = parseInt(params.get("_retry") || "0", 10);
+          if (tried < 3) {
+            // Auto-rotate to next CDN
+            params.set("cdn", next);
+            params.set("_retry", tried + 1);
+            console.warn("道·源 CDN", window._daoCdnName, "超时, 切换至", next);
+            location.search = params.toString();
+            return;
+          }
+          // All CDNs exhausted
+          var s = document.getElementById("status");
+          if (s) {
+            s.style.display = "block";
+            s.textContent = "⚠️ 所有CDN均不可用, 请检查网络后刷新";
+            s.style.color = "#ff6644";
+          }
+          var v = document.getElementById("enterVR");
+          if (v) v.textContent = "加载失败 - 请刷新";
+        }
+      }, 12000);
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+      import { VRButton } from "three/addons/webxr/VRButton.js";
+      window._threeLoaded = true;
+
+      // ╔══════════════════════════════════════════════════════════════╗
+      // ║  道·感知 DaoSense — 自动探测一切设备能力 · 无需用户告知    ║
+      // ║  Water finds its level; the system senses and adapts.      ║
+      // ╚══════════════════════════════════════════════════════════════╝
+      const Sense = (() => {
+        const ua = navigator.userAgent;
+        const touch = "ontouchstart" in window || navigator.maxTouchPoints > 1;
+        const fine = matchMedia("(pointer:fine)").matches;
+        const gyro = !!window.DeviceOrientationEvent;
+        const quest = /Quest|Oculus/i.test(ua);
+        const pico = /Pico/i.test(ua);
+        const vision = /Apple.*XR|Vision/i.test(ua);
+        const hmd =
+          quest || pico || vision || /HTC|Vive|Valve|WMR|Pimax/i.test(ua);
+        const mobile =
+          /Android|iPhone|iPad|iPod|webOS|BlackBerry/i.test(ua) ||
+          (touch && !fine);
+        const tablet = mobile && Math.min(screen.width, screen.height) > 600;
+        // GPU tier: 0=low 1=mid 2=high — soft-detected from WebGL
+        let gpu = 2;
+        try {
+          const c = document.createElement("canvas");
+          const gl = c.getContext("webgl2") || c.getContext("webgl");
+          if (gl) {
+            const d = gl.getExtension("WEBGL_debug_renderer_info");
+            const r = d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : "";
+            if (/Mali-G5|Adreno 5|Apple A[89]|PowerVR/i.test(r)) gpu = 0;
+            else if (/Mali-G7|Adreno 6[0-3]|Apple A1[0-4]|Intel.*UHD/i.test(r))
+              gpu = 1;
+          } else gpu = 0;
+        } catch (e) {
+          gpu = 1;
+        }
+        if (hmd && quest) gpu = Math.min(gpu, 1);
+        const hasGamepad = !!navigator.getGamepads;
+        const S = {
+          touch,
+          fine,
+          gyro,
+          quest,
+          pico,
+          vision,
+          hmd,
+          mobile,
+          tablet,
+          gpu,
+          hasGamepad,
+          get label() {
+            const p = [];
+            if (hmd)
+              p.push(
+                quest ? "Quest" : pico ? "Pico" : vision ? "Vision" : "HMD",
+              );
+            if (mobile && !hmd) p.push(tablet ? "Tablet" : "Mobile");
+            if (!mobile && !hmd) p.push("Desktop");
+            if (touch && !hmd) p.push("Touch");
+            if (gyro && mobile) p.push("Gyro");
+            if (hasGamepad) p.push("Gamepad");
+            p.push(["Low", "Mid", "High"][gpu]);
+            return p.join("·");
+          },
+        };
+        console.log("道·感知", S.label);
+        return S;
+      })();
+      const IS_MOBILE = Sense.mobile || Sense.hmd;
+
+      // ╔══════════════════════════════════════════════════════════════╗
+      // ║  道·配置 DaoCfg — 一切参数从设备能力动态推导 · 完全软编码  ║
+      // ║  No constant is hardcoded; all derive from what IS.        ║
+      // ╚══════════════════════════════════════════════════════════════╝
+      const CFG = {
+        // Sword count: soft-derived from GPU tier
+        swordCount: [100, 200, 350][Sense.gpu],
+        maxSpeed: 4.0,
+        sprintSpeed: 8.0,
+        steerForce: 5.0,
+        separationDist: 0.4,
+        separationForce: 1.5,
+        noiseScale: 0.3,
+        noiseStrength: 0.15,
+        shieldRadius: 2.5,
+        shieldOrbitSpeed: 2.5,
+        lotusRadius: 3.5,
+        lotusRotateSpeed: 2.5,
+        dagengRadius: 4.0,
+        dagengHeight: 3.0,
+        dagengRotateSpeed: 0.2,
+        pathHistoryLength: 200,
+        // Dynamic visual complexity
+        starCount: [500, 1000, 1500][Sense.gpu],
+        spiritCount: [80, 150, 250][Sense.gpu],
+        trailCount: [300, 600, 800][Sense.gpu],
+        atmosCount: [60, 120, 200][Sense.gpu],
+        pixelRatio: Math.min(
+          devicePixelRatio,
+          Sense.hmd ? 1 : [1.5, 1.8, 2][Sense.gpu],
+        ),
+        antialias: Sense.gpu >= 2 && !Sense.hmd,
+      };
+
+      // ===== STATE =====
+      const state = {
+        gestureMode: "LOTUS",
+        isTracking: false,
+        targetPosition: new THREE.Vector3(0, 1.2, -2),
+        pathHistory: Array.from(
+          { length: CFG.pathHistoryLength },
+          () => new THREE.Vector3(0, 1.2, -2),
+        ),
+        lastDirection: new THREE.Vector3(0, 0, -1),
+        isVR: false,
+        handJoints: null,
+      };
+
+      // Simplex noise approximation
+      const noise3D = (x, y, z) =>
+        Math.sin(x * 1.2 + y * 0.8) *
+        Math.cos(y * 1.1 + z * 0.9) *
+        Math.sin(z * 0.7 + x * 1.3);
+
+      // ===== CULTIVATION SYSTEM =====
+      const REALMS = [
+        { name: "炼气一层", qi: 100, color: "#88aacc" },
+        { name: "炼气二层", qi: 150, color: "#88bbdd" },
+        { name: "炼气三层", qi: 200, color: "#88ccee" },
+        { name: "筑基初期", qi: 300, color: "#66ddff" },
+        { name: "筑基中期", qi: 400, color: "#44eeff" },
+        { name: "筑基后期", qi: 500, color: "#22ffff" },
+        { name: "金丹初期", qi: 700, color: "#ffdd44" },
+        { name: "金丹中期", qi: 900, color: "#ffcc00" },
+        { name: "元婴初期", qi: 1200, color: "#ff8844" },
+        { name: "化神", qi: 2000, color: "#ff44ff" },
+      ];
+      const SPELLS = {
+        fire: {
+          name: "火球术",
+          cost: 15,
+          cd: 2.0,
+          color: "#ff4400",
+          count: 40,
+          speed: 12,
+          size: 0.08,
+        },
+        ice: {
+          name: "冰封术",
+          cost: 20,
+          cd: 3.0,
+          color: "#00aaff",
+          count: 60,
+          speed: 8,
+          size: 0.06,
+        },
+        lightning: {
+          name: "雷法",
+          cost: 25,
+          cd: 4.0,
+          color: "#cc88ff",
+          count: 80,
+          speed: 20,
+          size: 0.04,
+        },
+        sword: {
+          name: "剑气",
+          cost: 10,
+          cd: 1.5,
+          color: "#00ff88",
+          count: 30,
+          speed: 15,
+          size: 0.05,
+        },
+      };
+      const cult = {
+        qi: 100,
+        maxQi: 100,
+        realmIdx: 0,
+        exp: 0,
+        flying: false,
+        flySpd: 8,
+        meditating: false,
+        cds: { fire: 0, ice: 0, lightning: 0, sword: 0 },
+        spellParticles: [],
+        atmosParticles: null,
+        medParticles: null,
+        qiRegen: 5,
+        currentSpellIdx: 0,
+      };
+      const spellOrder = ["fire", "ice", "lightning", "sword"];
+
+      // ===== RENDERER SETUP =====
+      const renderer = new THREE.WebGLRenderer({
+        antialias: CFG.antialias,
+        alpha: true,
+        powerPreference: "high-performance",
+      });
+      renderer.setPixelRatio(CFG.pixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+      document.body.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#030810");
+      scene.fog = new THREE.Fog("#030810", 6, 40);
+
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.01,
+        200,
+      );
+      camera.position.set(0, 1.6, 4);
+
+      let controls = null;
+
+      // ===== LIGHTS =====
+      scene.add(new THREE.AmbientLight(0x4488ff, 0.15));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.3);
+      dirLight.position.set(5, 10, 5);
+      scene.add(dirLight);
+
+      // ===== SKY DOME (gradient atmosphere) =====
+      {
+        const skyGeo = new THREE.SphereGeometry(90, 32, 16);
+        const skyMat = new THREE.ShaderMaterial({
+          side: THREE.BackSide,
+          depthWrite: false,
+          uniforms: { uTime: { value: 0 } },
+          vertexShader: `varying vec3 vWorldPos; void main(){ vWorldPos=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+          fragmentShader: `varying vec3 vWorldPos; uniform float uTime;
+      void main(){
+        float h = normalize(vWorldPos).y;
+        vec3 night = vec3(0.01, 0.02, 0.06);
+        vec3 horizon = vec3(0.02, 0.06, 0.12);
+        vec3 zenith = vec3(0.005, 0.01, 0.04);
+        vec3 col = mix(horizon, h > 0.0 ? zenith : night, abs(h));
+        // Subtle aurora bands
+        float aurora = sin(h*15.0 + uTime*0.2) * 0.5 + 0.5;
+        aurora *= smoothstep(0.1, 0.4, h) * smoothstep(0.7, 0.4, h);
+        col += vec3(0.0, aurora*0.03, aurora*0.02);
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+        });
+        const sky = new THREE.Mesh(skyGeo, skyMat);
+        scene.add(sky);
+        scene.background = null;
+        // Store direct reference for per-frame update (T3-1: avoid scene.traverse)
+        window._skyUniforms = skyMat.uniforms;
+      }
+
+      // ===== MOUNTAINS (layered for depth) =====
+      const mtns = new THREE.Group();
+      // Near mountains (darker, larger)
+      [
+        [-12, 0, -18, 6, 10, 5],
+        [-6, 0, -20, 4.5, 7.5, 5],
+        [0, 0, -22, 7.5, 13, 5],
+        [9, 0, -19, 5.5, 9, 5],
+        [15, 0, -18, 6.5, 11, 5],
+        [-18, 0, -16, 5, 8, 5],
+      ].forEach(([x, y, z, r, h, s]) => {
+        const m = new THREE.Mesh(
+          new THREE.ConeGeometry(r, h, s),
+          new THREE.MeshBasicMaterial({
+            color: new THREE.Color().setHSL(
+              0.58,
+              0.1,
+              0.02 + Math.random() * 0.01,
+            ),
+          }),
+        );
+        m.position.set(x, y + h / 2, z);
+        mtns.add(m);
+      });
+      // Far mountains (lighter, bigger for parallax)
+      [
+        [-25, 0, -35, 12, 18, 5],
+        [5, 0, -38, 15, 22, 6],
+        [25, 0, -32, 10, 16, 5],
+        [-15, 0, -40, 14, 20, 5],
+        [20, 0, -42, 13, 19, 6],
+      ].forEach(([x, y, z, r, h, s]) => {
+        const m = new THREE.Mesh(
+          new THREE.ConeGeometry(r, h, s),
+          new THREE.MeshBasicMaterial({
+            color: new THREE.Color().setHSL(
+              0.6,
+              0.08,
+              0.04 + Math.random() * 0.01,
+            ),
+          }),
+        );
+        m.position.set(x, y + h / 2, z);
+        mtns.add(m);
+      });
+      scene.add(mtns);
+
+      // ===== WATER / LAKE SURFACE (修仙灵湖) =====
+      {
+        const waterGeo = new THREE.PlaneGeometry(60, 60, 32, 32);
+        const waterMat = new THREE.ShaderMaterial({
+          transparent: true,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          uniforms: { uTime: { value: 0 } },
+          vertexShader: `varying vec2 vUv; varying float vWave; uniform float uTime;
+      void main(){
+        vUv = uv;
+        vec3 p = position;
+        vWave = sin(p.x*2.0+uTime*0.8)*0.04 + sin(p.y*3.0+uTime*0.6)*0.03;
+        p.z += vWave;
+        gl_Position = projectionMatrix*modelViewMatrix*vec4(p,1.0);
+      }`,
+          fragmentShader: `varying vec2 vUv; varying float vWave; uniform float uTime;
+      void main(){
+        float ripple = sin(vUv.x*30.0+uTime)*sin(vUv.y*30.0+uTime*0.7)*0.1;
+        vec3 deep = vec3(0.0, 0.04, 0.08);
+        vec3 surface = vec3(0.02, 0.1, 0.15);
+        vec3 col = mix(deep, surface, vWave*5.0+0.5+ripple);
+        // Edge fade
+        float edge = smoothstep(0.0, 0.15, min(vUv.x, min(vUv.y, min(1.0-vUv.x, 1.0-vUv.y))));
+        gl_FragColor = vec4(col, 0.4 * edge);
+      }`,
+        });
+        const water = new THREE.Mesh(waterGeo, waterMat);
+        water.rotation.x = -Math.PI / 2;
+        water.position.set(0, -0.05, -8);
+        water.renderOrder = -1; // T3-3: render before opaque to prevent VR flicker
+        scene.add(water);
+        // Store direct reference (T3-1)
+        window._waterUniforms = waterMat.uniforms;
+      }
+
+      // ===== CULTIVATION ENERGY ORBS (灵气光球) =====
+      const orbGroup = new THREE.Group();
+      for (let i = 0; i < 8; i++) {
+        const orb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.08 + Math.random() * 0.06, 12, 12),
+          new THREE.MeshBasicMaterial({
+            color: new THREE.Color().setHSL(
+              0.3 + Math.random() * 0.15,
+              0.8,
+              0.5,
+            ),
+            transparent: true,
+            opacity: 0.5,
+            blending: THREE.AdditiveBlending,
+          }),
+        );
+        orb.position.set(
+          (Math.random() - 0.5) * 8,
+          0.5 + Math.random() * 3,
+          -2 + (Math.random() - 0.5) * 6,
+        );
+        orb.userData.baseY = orb.position.y;
+        orb.userData.speed = 0.3 + Math.random() * 0.7;
+        orb.userData.phase = Math.random() * Math.PI * 2;
+        orbGroup.add(orb);
+      }
+      scene.add(orbGroup);
+
+      // ===== FLOATING CLOUDS =====
+      const cloudsGroup = new THREE.Group();
+      for (let i = 0; i < 10; i++) {
+        const s = 2 + Math.random() * 5;
+        const cloud = new THREE.Mesh(
+          new THREE.SphereGeometry(s, 8, 6),
+          new THREE.MeshBasicMaterial({
+            color: 0x1a2a4a,
+            transparent: true,
+            opacity: 0.08 + Math.random() * 0.06,
+            side: THREE.BackSide,
+          }),
+        );
+        cloud.position.set(
+          (Math.random() - 0.5) * 30,
+          -1 + Math.random() * 6,
+          -10 - Math.random() * 15,
+        );
+        cloud.scale.set(1.5, 0.5, 1);
+        cloudsGroup.add(cloud);
+      }
+      scene.add(cloudsGroup);
+
+      // ===== SPATIAL AUDIO =====
+      let audioCtx = null,
+        masterGain = null,
+        swordDrone = null,
+        droneGainNode = null,
+        drone2Node = null;
+      function initAudio() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.15;
+        masterGain.connect(audioCtx.destination);
+        // Ambient drone (修仙氛围)
+        swordDrone = audioCtx.createOscillator();
+        swordDrone.type = "sine";
+        swordDrone.frequency.value = 82; // Low E
+        const droneGain = audioCtx.createGain();
+        droneGain.gain.value = 0.08;
+        const droneFilter = audioCtx.createBiquadFilter();
+        droneFilter.type = "lowpass";
+        droneFilter.frequency.value = 200;
+        swordDrone.connect(droneFilter);
+        droneFilter.connect(droneGain);
+        droneGainNode = droneGain;
+        droneGain.connect(masterGain);
+        swordDrone.start();
+        // Second harmonic
+        drone2Node = audioCtx.createOscillator();
+        drone2Node.type = "sine";
+        drone2Node.frequency.value = 123; // B
+        const d2g = audioCtx.createGain();
+        d2g.gain.value = 0.04;
+        drone2Node.connect(d2g);
+        d2g.connect(masterGain);
+        drone2Node.start();
+      }
+      function playModeSwitch() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(
+          880,
+          audioCtx.currentTime + 0.15,
+        );
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      }
+      // ===== SPELL-SPECIFIC AUDIO =====
+      function playSpellSound(type) {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        if (type === "fire") {
+          // Crackling rumble: low freq sweep up
+          const o = audioCtx.createOscillator();
+          o.type = "sawtooth";
+          o.frequency.setValueAtTime(80, t);
+          o.frequency.exponentialRampToValueAtTime(400, t + 0.15);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.25, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+          const f = audioCtx.createBiquadFilter();
+          f.type = "lowpass";
+          f.frequency.value = 600;
+          o.connect(f);
+          f.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.4);
+          // Sub-rumble
+          const o2 = audioCtx.createOscillator();
+          o2.type = "sine";
+          o2.frequency.value = 55;
+          const g2 = audioCtx.createGain();
+          g2.gain.setValueAtTime(0.15, t);
+          g2.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+          o2.connect(g2);
+          g2.connect(masterGain);
+          o2.start(t);
+          o2.stop(t + 0.3);
+        } else if (type === "ice") {
+          // Crystalline: high descending shimmer
+          const o = audioCtx.createOscillator();
+          o.type = "sine";
+          o.frequency.setValueAtTime(2400, t);
+          o.frequency.exponentialRampToValueAtTime(800, t + 0.5);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.12, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.5);
+          // Sparkle overtone
+          const o2 = audioCtx.createOscillator();
+          o2.type = "sine";
+          o2.frequency.setValueAtTime(4800, t);
+          o2.frequency.exponentialRampToValueAtTime(1200, t + 0.3);
+          const g2 = audioCtx.createGain();
+          g2.gain.setValueAtTime(0.06, t);
+          g2.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+          o2.connect(g2);
+          g2.connect(masterGain);
+          o2.start(t);
+          o2.stop(t + 0.3);
+        } else if (type === "lightning") {
+          // Sharp crack + sizzle
+          const o = audioCtx.createOscillator();
+          o.type = "square";
+          o.frequency.setValueAtTime(3000, t);
+          o.frequency.exponentialRampToValueAtTime(100, t + 0.08);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.3, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.15);
+          // Thunder rumble
+          const o2 = audioCtx.createOscillator();
+          o2.type = "sawtooth";
+          o2.frequency.value = 40;
+          const g2 = audioCtx.createGain();
+          g2.gain.setValueAtTime(0.001, t);
+          g2.gain.linearRampToValueAtTime(0.2, t + 0.05);
+          g2.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+          const f2 = audioCtx.createBiquadFilter();
+          f2.type = "lowpass";
+          f2.frequency.value = 200;
+          o2.connect(f2);
+          f2.connect(g2);
+          g2.connect(masterGain);
+          o2.start(t);
+          o2.stop(t + 0.6);
+        } else if (type === "sword") {
+          // Metallic swoosh: mid-frequency sweep
+          const o = audioCtx.createOscillator();
+          o.type = "triangle";
+          o.frequency.setValueAtTime(600, t);
+          o.frequency.exponentialRampToValueAtTime(1800, t + 0.1);
+          o.frequency.exponentialRampToValueAtTime(300, t + 0.3);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.2, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.35);
+        }
+      }
+      function playBreakthroughSound() {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        // Ascending major chord: C4→E4→G4→C5
+        [261.6, 329.6, 392.0, 523.3].forEach((freq, i) => {
+          const o = audioCtx.createOscillator();
+          o.type = "sine";
+          o.frequency.value = freq;
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.001, t + i * 0.2);
+          g.gain.linearRampToValueAtTime(0.15, t + i * 0.2 + 0.1);
+          g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.2 + 1.5);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t + i * 0.2);
+          o.stop(t + i * 0.2 + 1.5);
+        });
+        // Golden shimmer overtone
+        const o = audioCtx.createOscillator();
+        o.type = "sine";
+        o.frequency.value = 1046.5;
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.001, t + 0.8);
+        g.gain.linearRampToValueAtTime(0.1, t + 1.0);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 2.5);
+        o.connect(g);
+        g.connect(masterGain);
+        o.start(t + 0.8);
+        o.stop(t + 2.5);
+      }
+      function playMeditationToggle(start) {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        if (start) {
+          // Soft ascending pad: calming
+          const o = audioCtx.createOscillator();
+          o.type = "sine";
+          o.frequency.setValueAtTime(220, t);
+          o.frequency.linearRampToValueAtTime(330, t + 0.8);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.001, t);
+          g.gain.linearRampToValueAtTime(0.1, t + 0.4);
+          g.gain.linearRampToValueAtTime(0.05, t + 1.0);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 1.5);
+          // Harmonic fifth
+          const o2 = audioCtx.createOscillator();
+          o2.type = "sine";
+          o2.frequency.value = 330;
+          const g2 = audioCtx.createGain();
+          g2.gain.setValueAtTime(0.001, t + 0.2);
+          g2.gain.linearRampToValueAtTime(0.06, t + 0.6);
+          g2.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+          o2.connect(g2);
+          g2.connect(masterGain);
+          o2.start(t + 0.2);
+          o2.stop(t + 1.5);
+        } else {
+          // Soft descending tone
+          const o = audioCtx.createOscillator();
+          o.type = "sine";
+          o.frequency.setValueAtTime(330, t);
+          o.frequency.exponentialRampToValueAtTime(165, t + 0.5);
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.08, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+          o.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.5);
+        }
+      }
+      function playFlightToggle(start) {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        if (start) {
+          // Rising wind whoosh
+          const o = audioCtx.createOscillator();
+          o.type = "sawtooth";
+          o.frequency.setValueAtTime(100, t);
+          o.frequency.exponentialRampToValueAtTime(800, t + 0.3);
+          const f = audioCtx.createBiquadFilter();
+          f.type = "bandpass";
+          f.frequency.setValueAtTime(300, t);
+          f.frequency.exponentialRampToValueAtTime(1200, t + 0.3);
+          f.Q.value = 2;
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.001, t);
+          g.gain.linearRampToValueAtTime(0.15, t + 0.15);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+          o.connect(f);
+          f.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.5);
+        } else {
+          // Descending wind
+          const o = audioCtx.createOscillator();
+          o.type = "sawtooth";
+          o.frequency.setValueAtTime(600, t);
+          o.frequency.exponentialRampToValueAtTime(80, t + 0.4);
+          const f = audioCtx.createBiquadFilter();
+          f.type = "bandpass";
+          f.frequency.value = 400;
+          f.Q.value = 2;
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.12, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+          o.connect(f);
+          f.connect(g);
+          g.connect(masterGain);
+          o.start(t);
+          o.stop(t + 0.4);
+        }
+      }
+      // Drone follows formation mode
+      const DRONE_FREQS = {
+        LOTUS: [82, 123],
+        DRAGON: [98, 147],
+        SHIELD: [65, 98],
+        DAGENG: [55, 82],
+      };
+      function updateDroneMode(mode) {
+        if (!swordDrone || !drone2Node) return;
+        const f = DRONE_FREQS[mode] || DRONE_FREQS.LOTUS;
+        const t = audioCtx.currentTime;
+        swordDrone.frequency.linearRampToValueAtTime(f[0], t + 0.5);
+        drone2Node.frequency.linearRampToValueAtTime(f[1], t + 0.5);
+      }
+      // Qi-low warning
+      let _qiWarnPlayed = false;
+      function playQiWarning() {
+        if (!audioCtx || _qiWarnPlayed) return;
+        _qiWarnPlayed = true;
+        const t = audioCtx.currentTime;
+        const o = audioCtx.createOscillator();
+        o.type = "sine";
+        o.frequency.setValueAtTime(600, t);
+        o.frequency.setValueAtTime(400, t + 0.15);
+        o.frequency.setValueAtTime(600, t + 0.3);
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.15, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        o.connect(g);
+        g.connect(masterGain);
+        o.start(t);
+        o.stop(t + 0.5);
+        setTimeout(() => {
+          _qiWarnPlayed = false;
+        }, 5000);
+      }
+      // Cooldown ready ping
+      function playCdReady() {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        const o = audioCtx.createOscillator();
+        o.type = "sine";
+        o.frequency.value = 1200;
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.08, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        o.connect(g);
+        g.connect(masterGain);
+        o.start(t);
+        o.stop(t + 0.15);
+      }
+      // Init audio on first user gesture
+      document.addEventListener("click", initAudio, { once: true });
+      document.addEventListener("touchstart", initAudio, { once: true });
+
+      // ╔══════════════════════════════════════════════════════════════╗
+      // ║  道·输入 DaoInput — 万源归一 · Universal Input Abstraction  ║
+      // ║  Touch/Gyro/Gamepad → same state · 所有设备自然可用         ║
+      // ╚══════════════════════════════════════════════════════════════╝
+
+      // ─── Touch input (phones, tablets, touch laptops) ───
+      const _touch = {
+        x: 0,
+        y: 0,
+        active: false,
+        startX: 0,
+        startY: 0,
+        startT: 0,
+        lastTap: 0,
+      };
+      if (Sense.touch) {
+        document.addEventListener(
+          "touchstart",
+          (e) => {
+            _touch.active = true;
+            _touch.x = e.touches[0].clientX;
+            _touch.y = e.touches[0].clientY;
+            _touch.startX = _touch.x;
+            _touch.startY = _touch.y;
+            _touch.startT = performance.now();
+            // Double-tap → cycle formation
+            const now = performance.now();
+            if (now - _touch.lastTap < 350) {
+              window._daoIntent_cycleMode = true;
+            }
+            _touch.lastTap = now;
+          },
+          { passive: true },
+        );
+        document.addEventListener(
+          "touchmove",
+          (e) => {
+            if (e.touches.length > 0) {
+              _touch.x = e.touches[0].clientX;
+              _touch.y = e.touches[0].clientY;
+            }
+          },
+          { passive: true },
+        );
+        document.addEventListener(
+          "touchend",
+          (e) => {
+            if (e.touches.length === 0) _touch.active = false;
+            // Swipe detection → cast spell by direction
+            const dx = _touch.x - _touch.startX;
+            const dy = _touch.y - _touch.startY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 60 && performance.now() - _touch.startT < 500) {
+              const angle = Math.atan2(dy, dx);
+              if (angle > -0.7 && angle < 0.7)
+                window._daoIntent_spell = "fire"; // swipe right
+              else if (angle > 0.7 && angle < 2.4)
+                window._daoIntent_spell = "ice"; // swipe down
+              else if (angle < -0.7 && angle > -2.4)
+                window._daoIntent_spell = "lightning"; // swipe up
+              else window._daoIntent_spell = "sword"; // swipe left
+            }
+          },
+          { passive: true },
+        );
+      }
+
+      // ─── Gyroscope input (phones, tablets — tilt to aim) ───
+      const _gyro = { alpha: 0, beta: 0, gamma: 0, on: false };
+      if (Sense.gyro && Sense.mobile && !Sense.hmd) {
+        const listen = () =>
+          window.addEventListener(
+            "deviceorientation",
+            (e) => {
+              _gyro.alpha = e.alpha || 0;
+              _gyro.beta = e.beta || 0;
+              _gyro.gamma = e.gamma || 0;
+              _gyro.on = true;
+            },
+            { passive: true },
+          );
+        if (
+          typeof DeviceOrientationEvent !== "undefined" &&
+          DeviceOrientationEvent.requestPermission
+        ) {
+          // iOS 13+ requires permission
+          const req = () =>
+            DeviceOrientationEvent.requestPermission()
+              .then((r) => {
+                if (r === "granted") listen();
+              })
+              .catch(() => {});
+          document.addEventListener("click", req, { once: true });
+          document.addEventListener("touchstart", req, { once: true });
+        } else {
+          listen();
+        }
+      }
+
+      // ─── Gamepad input (PS5, Xbox, Switch Pro, generic) ───
+      const _gp = {
+        on: false,
+        axes: [0, 0, 0, 0],
+        prev: new Array(17).fill(false),
+      };
+      function pollGamepad() {
+        if (!Sense.hasGamepad) return;
+        const pads = navigator.getGamepads();
+        for (const pad of pads) {
+          if (!pad) continue;
+          _gp.on = true;
+          for (let a = 0; a < Math.min(pad.axes.length, 4); a++)
+            _gp.axes[a] = pad.axes[a];
+          // Edge-detect buttons → actions
+          for (let b = 0; b < Math.min(pad.buttons.length, 17); b++) {
+            const pressed = pad.buttons[b].pressed;
+            if (pressed && !_gp.prev[b]) {
+              if (b === 0) window._daoIntent_spell = "fire"; // A/Cross
+              if (b === 1) window._daoIntent_cycleMode = true; // B/Circle
+              if (b === 2) window._daoIntent_spell = "sword"; // X/Square
+              if (b === 3) window._daoIntent_toggleFlight = true; // Y/Triangle
+              if (b === 4) window._daoIntent_spell = "ice"; // LB
+              if (b === 5) window._daoIntent_spell = "lightning"; // RB
+              if (b === 8) window._daoIntent_toggleMed = true; // Select
+              if (b === 9) window._daoIntent_cycleMode = true; // Start
+            }
+            _gp.prev[b] = pressed;
+          }
+          break; // use first connected gamepad
+        }
+      }
+
+      // ─── Unified intent drain (called each frame in render loop) ───
+      function drainDaoIntents() {
+        pollGamepad();
+        // Cycle formation mode
+        if (window._daoIntent_cycleMode) {
+          window._daoIntent_cycleMode = false;
+          const idx = modeOrder.indexOf(state.gestureMode);
+          state.gestureMode = modeOrder[(idx + 1) % modeOrder.length];
+          confirmedGesture = state.gestureMode;
+          modeSwitchFlash = 1.0;
+          playModeSwitch();
+          updateDroneMode(state.gestureMode);
+        }
+        // Cast spell
+        if (window._daoIntent_spell) {
+          const sp = window._daoIntent_spell;
+          window._daoIntent_spell = null;
+          castSpell(sp);
+        }
+        // Toggle flight
+        if (window._daoIntent_toggleFlight) {
+          window._daoIntent_toggleFlight = false;
+          toggleFlight();
+        }
+        // Toggle meditation
+        if (window._daoIntent_toggleMed) {
+          window._daoIntent_toggleMed = false;
+          toggleMeditation();
+        }
+        // Gyroscope → target position (mobile flat mode)
+        if (_gyro.on && !state.isVR && flatMode) {
+          const gx = THREE.MathUtils.clamp(_gyro.gamma / 45, -1, 1) * 3;
+          const gy = THREE.MathUtils.clamp((_gyro.beta - 45) / 45, -1, 1) * 3;
+          state.targetPosition.lerp(_tmpVec1.set(gx, 1.2 - gy, -2), 0.08);
+        }
+        // Touch → target position (mobile flat mode)
+        if (_touch.active && flatMode && !_gyro.on) {
+          const ndcX = (_touch.x / window.innerWidth) * 2 - 1;
+          const ndcY = -(_touch.y / window.innerHeight) * 2 + 1;
+          _ptrVec.set(ndcX, ndcY, 0.5).unproject(camera);
+          _ptrVec.sub(camera.position).normalize();
+          const dist = (1.2 - camera.position.y) / _ptrVec.y || 3;
+          _ptrWorldPos
+            .copy(camera.position)
+            .addScaledVector(_ptrVec, Math.abs(dist));
+          state.targetPosition.lerp(_ptrWorldPos, 0.15);
+        }
+        // Gamepad right stick → target position
+        if (_gp.on && flatMode) {
+          if (Math.abs(_gp.axes[2]) > 0.1 || Math.abs(_gp.axes[3]) > 0.1) {
+            state.targetPosition.x += _gp.axes[2] * 0.08;
+            state.targetPosition.z += _gp.axes[3] * 0.08;
+          }
+          // Gamepad left stick → WASD-equivalent movement
+          if (Math.abs(_gp.axes[0]) > 0.15 || Math.abs(_gp.axes[1]) > 0.15) {
+            if (!window._flatKeys) window._flatKeys = {};
+            window._flatKeys["_gpX"] = _gp.axes[0];
+            window._flatKeys["_gpY"] = _gp.axes[1];
+          }
+        }
+      }
+
+      // ===== CULTIVATION: SPELL SYSTEM =====
+      function castSpell(type) {
+        const sp = SPELLS[type];
+        if (!sp) return;
+        if (cult.cds[type] > 0) return;
+        if (cult.qi < sp.cost) {
+          showCultMsg("灵力不足！");
+          playQiWarning();
+          return;
+        }
+        cult.qi -= sp.cost;
+        cult.cds[type] = sp.cd;
+        cult.exp += sp.cost * 0.5;
+        updateQiBar();
+        checkBreakthrough();
+        _spellFlashEl.className = "";
+        void _spellFlashEl.offsetWidth;
+        _spellFlashEl.className = "flash-" + type;
+        _spellFlashEl.style.opacity = "1";
+        setTimeout(() => (_spellFlashEl.style.opacity = "0"), 150);
+        playSpellSound(type);
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        _spellOrigin.copy(camera.position).addScaledVector(dir, 0.5);
+        const origin = _spellOrigin;
+        const N = sp.count;
+        const geo = new THREE.BufferGeometry();
+        const positions = new Float32Array(N * 3),
+          velocities = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+          positions[i * 3] = origin.x + (Math.random() - 0.5) * 0.3;
+          positions[i * 3 + 1] = origin.y + (Math.random() - 0.5) * 0.3;
+          positions[i * 3 + 2] = origin.z + (Math.random() - 0.5) * 0.3;
+          velocities[i * 3] = dir.x * sp.speed + (Math.random() - 0.5) * 3;
+          velocities[i * 3 + 1] = dir.y * sp.speed + (Math.random() - 0.5) * 3;
+          velocities[i * 3 + 2] = dir.z * sp.speed + (Math.random() - 0.5) * 3;
+        }
+        geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        const mat = new THREE.PointsMaterial({
+          color: new THREE.Color(sp.color),
+          size: sp.size,
+          transparent: true,
+          opacity: 0.9,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const pts = new THREE.Points(geo, mat);
+        pts.userData = { vel: velocities, life: 2.0, maxLife: 2.0 };
+        scene.add(pts);
+        cult.spellParticles.push(pts);
+        const _s = _slotCache[type];
+        if (_s) {
+          _s.slot.classList.add("active");
+          setTimeout(() => _s.slot.classList.remove("active"), 300);
+        }
+      }
+      function updateSpellParticles(dt) {
+        for (let i = cult.spellParticles.length - 1; i >= 0; i--) {
+          const p = cult.spellParticles[i];
+          p.userData.life -= dt;
+          if (p.userData.life <= 0) {
+            scene.remove(p);
+            p.geometry.dispose();
+            p.material.dispose();
+            cult.spellParticles.splice(i, 1);
+            continue;
+          }
+          const frac = p.userData.life / p.userData.maxLife;
+          p.material.opacity = frac * 0.9;
+          const pos = p.geometry.attributes.position.array,
+            vel = p.userData.vel,
+            N = pos.length / 3;
+          for (let j = 0; j < N; j++) {
+            pos[j * 3] += vel[j * 3] * dt;
+            pos[j * 3 + 1] += vel[j * 3 + 1] * dt - 0.5 * dt;
+            pos[j * 3 + 2] += vel[j * 3 + 2] * dt;
+            vel[j * 3] *= 1 - dt * 0.5;
+            vel[j * 3 + 1] *= 1 - dt * 0.5;
+            vel[j * 3 + 2] *= 1 - dt * 0.5;
+          }
+          p.geometry.attributes.position.needsUpdate = true;
+        }
+        for (const k in cult.cds) {
+          if (cult.cds[k] > 0) {
+            cult.cds[k] = Math.max(0, cult.cds[k] - dt);
+            const cached = _slotCache[k];
+            if (cached) {
+              const cd = cached.cd;
+              if (cult.cds[k] > 0) {
+                cd.style.display = "block";
+                cd.style.height = (cult.cds[k] / SPELLS[k].cd) * 100 + "%";
+              } else {
+                if (cd.style.display === "block") playCdReady();
+                cd.style.display = "none";
+              }
+            }
+          }
+        }
+        if (!cult.meditating)
+          cult.qi = Math.min(cult.maxQi, cult.qi + cult.qiRegen * dt);
+        if (cult.qi < cult.maxQi * 0.15 && cult.qi > 0) playQiWarning();
+        updateQiBar();
+      }
+
+      // ===== CULTIVATION: FLIGHT =====
+      function toggleFlight() {
+        cult.flying = !cult.flying;
+        _flyIndEl.style.display = cult.flying ? "block" : "none";
+        if (_slotCache["fly"])
+          _slotCache["fly"].slot.classList.toggle("active", cult.flying);
+        showCultMsg(cult.flying ? "御剑飞行！" : "落地");
+        playFlightToggle(cult.flying);
+        if (cult.flying && cult.meditating) toggleMeditation();
+      }
+      function updateFlight(dt) {
+        if (!cult.flying || !controls) return;
+        const keys = window._flatKeys;
+        if (!keys) return;
+        const spd = cult.flySpd * dt;
+        camera.getWorldDirection(_fwdVec);
+        const fwd = _fwdVec;
+        _rightVec.crossVectors(fwd, _upVec).normalize();
+        const right = _rightVec;
+        if (keys["w"]) {
+          camera.position.addScaledVector(fwd, spd);
+          controls.target.addScaledVector(fwd, spd);
+        }
+        if (keys["s"]) {
+          camera.position.addScaledVector(fwd, -spd * 0.6);
+          controls.target.addScaledVector(fwd, -spd * 0.6);
+        }
+        if (keys["a"]) {
+          camera.position.addScaledVector(right, -spd * 0.7);
+          controls.target.addScaledVector(right, -spd * 0.7);
+        }
+        if (keys["d"]) {
+          camera.position.addScaledVector(right, spd * 0.7);
+          controls.target.addScaledVector(right, spd * 0.7);
+        }
+        if (keys[" "]) {
+          camera.position.y += spd * 1.2;
+          controls.target.y += spd * 1.2;
+        }
+        if (keys["shift"]) {
+          camera.position.y -= spd * 1.2;
+          controls.target.y -= spd * 1.2;
+        }
+        cult.qi = Math.max(0, cult.qi - 2 * dt);
+        if (cult.qi <= 0) toggleFlight();
+      }
+
+      // ===== CULTIVATION: MEDITATION =====
+      function toggleMeditation() {
+        cult.meditating = !cult.meditating;
+        if (_slotCache["meditate"])
+          _slotCache["meditate"].slot.classList.toggle(
+            "active",
+            cult.meditating,
+          );
+        if (cult.meditating) {
+          showCultMsg("打坐修炼中... 灵气恢复加速");
+          playMeditationToggle(true);
+          _medVigEl?.classList.add("active");
+          if (!cult.medParticles) createMedParticles();
+          cult.medParticles.visible = true;
+          if (cult.flying) toggleFlight();
+        } else {
+          showCultMsg("修炼结束");
+          playMeditationToggle(false);
+          _medVigEl?.classList.remove("active");
+          if (cult.medParticles) cult.medParticles.visible = false;
+        }
+      }
+      function createMedParticles() {
+        const N = 120,
+          geo = new THREE.BufferGeometry();
+        geo.setAttribute(
+          "position",
+          new THREE.BufferAttribute(new Float32Array(N * 3), 3),
+        );
+        const mat = new THREE.PointsMaterial({
+          color: 0x00ccff,
+          size: 0.04,
+          transparent: true,
+          opacity: 0.6,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        cult.medParticles = new THREE.Points(geo, mat);
+        cult.medParticles.visible = false;
+        scene.add(cult.medParticles);
+      }
+      function updateMeditation(time, dt) {
+        if (!cult.meditating) return;
+        cult.qi = Math.min(cult.maxQi, cult.qi + cult.qiRegen * 4 * dt);
+        cult.exp += 2 * dt;
+        checkBreakthrough();
+        const p = cult.medParticles;
+        if (!p) return;
+        const pos = p.geometry.attributes.position.array,
+          N = pos.length / 3,
+          cam = camera.position;
+        for (let i = 0; i < N; i++) {
+          const t = i / N,
+            angle = t * Math.PI * 2 * 3 + time * 2;
+          const r = 1.0 + Math.sin(time * 3 + t * 10) * 0.4 + t * 1.5;
+          const h = (t - 0.5) * 3 + Math.sin(time * 2 + t * 5) * 0.3;
+          pos[i * 3] = cam.x + Math.cos(angle) * r;
+          pos[i * 3 + 1] = cam.y + h;
+          pos[i * 3 + 2] = cam.z + Math.sin(angle) * r;
+        }
+        p.geometry.attributes.position.needsUpdate = true;
+        p.material.color.setHSL(0.55 + Math.sin(time) * 0.05, 0.8, 0.6);
+        p.material.opacity = 0.4 + Math.sin(time * 2) * 0.2;
+      }
+
+      // ===== CULTIVATION: QI & BREAKTHROUGH =====
+      function updateQiBar() {
+        if (_qiBarEl) _qiBarEl.style.width = (cult.qi / cult.maxQi) * 100 + "%";
+      }
+      function showCultMsg(text) {
+        statusEl.style.color = "#88eeff";
+        statusEl.textContent = text;
+        clearTimeout(statusEl._ct);
+        statusEl._ct = setTimeout(() => {
+          statusEl._ct = null;
+        }, 2500);
+      }
+      function checkBreakthrough() {
+        const next = REALMS[cult.realmIdx + 1];
+        if (!next) return;
+        if (cult.exp >= next.qi * 10) {
+          cult.realmIdx++;
+          cult.maxQi = REALMS[cult.realmIdx].qi;
+          cult.qi = cult.maxQi;
+          cult.qiRegen = 5 + cult.realmIdx * 2;
+          cult.exp = 0;
+          _btEl.querySelector("h2").textContent =
+            "突破！" + REALMS[cult.realmIdx].name;
+          _btEl.querySelector("p").textContent = "灵力上限提升至 " + cult.maxQi;
+          _btEl.style.display = "flex";
+          document.body.style.animation = "btShake 0.3s ease-in-out 2";
+          setTimeout(() => {
+            document.body.style.animation = "";
+          }, 600);
+          setTimeout(() => (_btEl.style.display = "none"), 3000);
+          if (_realmEl) {
+            _realmEl.textContent = REALMS[cult.realmIdx].name;
+            _realmEl.style.color = REALMS[cult.realmIdx].color;
+          }
+          updateQiBar();
+          showCultMsg("恭喜突破 " + REALMS[cult.realmIdx].name + "！");
+          playBreakthroughSound();
+        }
+      }
+
+      // ===== ATMOSPHERIC SPIRITUAL PARTICLES =====
+      function createAtmosphericParticles() {
+        const N = 200;
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(N * 3),
+          col = new Float32Array(N * 3),
+          vel = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+          pos[i * 3] = (Math.random() - 0.5) * 30;
+          pos[i * 3 + 1] = Math.random() * 15;
+          pos[i * 3 + 2] = (Math.random() - 0.5) * 30;
+          const c = new THREE.Color().setHSL(
+            0.5 + Math.random() * 0.2,
+            0.6,
+            0.7,
+          );
+          col[i * 3] = c.r;
+          col[i * 3 + 1] = c.g;
+          col[i * 3 + 2] = c.b;
+          vel[i * 3] = (Math.random() - 0.5) * 0.3;
+          vel[i * 3 + 1] = 0.1 + Math.random() * 0.3;
+          vel[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
+        }
+        geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+        const mat = new THREE.PointsMaterial({
+          size: 0.05,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.4,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const pts = new THREE.Points(geo, mat);
+        pts.userData.vel = vel;
+        scene.add(pts);
+        cult.atmosParticles = pts;
+      }
+      function updateAtmosParticles(time, dt) {
+        const p = cult.atmosParticles;
+        if (!p) return;
+        const pos = p.geometry.attributes.position.array,
+          vel = p.userData.vel,
+          cam = camera.position,
+          N = pos.length / 3;
+        for (let i = 0; i < N; i++) {
+          pos[i * 3] += vel[i * 3] * dt;
+          pos[i * 3 + 1] += vel[i * 3 + 1] * dt;
+          pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
+          if (Math.abs(pos[i * 3] - cam.x) > 15)
+            pos[i * 3] = cam.x + (Math.random() - 0.5) * 30;
+          if (pos[i * 3 + 1] > 15 || pos[i * 3 + 1] < -1) {
+            pos[i * 3 + 1] = Math.random() * 2;
+            vel[i * 3 + 1] = 0.1 + Math.random() * 0.3;
+          }
+          if (Math.abs(pos[i * 3 + 2] - cam.z) > 15)
+            pos[i * 3 + 2] = cam.z + (Math.random() - 0.5) * 30;
+          vel[i * 3] += (Math.random() - 0.5) * dt * 0.5;
+          vel[i * 3 + 2] += (Math.random() - 0.5) * dt * 0.5;
+        }
+        p.geometry.attributes.position.needsUpdate = true;
+        p.material.opacity = 0.3 + Math.sin(time * 0.5) * 0.1;
+      }
+
+      window._castSpell = castSpell;
+      window._toggleFlight = toggleFlight;
+      window._toggleMeditation = toggleMeditation;
+      window.cult = cult;
+      window.state = state;
+      window.scene = scene;
+      window.REALMS = REALMS;
+      window.checkBreakthrough = checkBreakthrough;
+
+      // ===== ADAPTIVE PERFORMANCE =====
+      let adaptiveSwordCount = CFG.swordCount;
+      let fpsHistory = [];
+      function adaptPerformance(fps) {
+        fpsHistory.push(fps);
+        if (fpsHistory.length > 10) fpsHistory.shift();
+        if (fpsHistory.length < 5) return;
+        const avg = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
+        if (avg < 30 && adaptiveSwordCount > 100) {
+          adaptiveSwordCount = Math.max(100, adaptiveSwordCount - 50);
+          console.log(
+            "⚡ Reducing swords to",
+            adaptiveSwordCount,
+            "for performance",
+          );
+        } else if (avg > 50 && adaptiveSwordCount < CFG.swordCount) {
+          adaptiveSwordCount = Math.min(
+            CFG.swordCount,
+            adaptiveSwordCount + 25,
+          );
+        }
+      }
+
+      // ===== STARFIELD =====
+      {
+        const count = 1500;
+        const pos = new Float32Array(count * 3);
+        const col = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(2 * Math.random() - 1);
+          // D13 fix: push stars beyond VR fog (80m) so they're visible
+          const r = 50 + Math.random() * 40;
+          pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+          pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+          pos[i * 3 + 2] = r * Math.cos(phi);
+          const b = 0.5 + Math.random() * 0.5;
+          col[i * 3] = b;
+          col[i * 3 + 1] = b;
+          col[i * 3 + 2] = b + Math.random() * 0.2;
+        }
+        const starGeo = new THREE.BufferGeometry();
+        starGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        starGeo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+        const stars = new THREE.Points(
+          starGeo,
+          new THREE.PointsMaterial({
+            size: 0.06,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.8,
+            sizeAttenuation: true,
+          }),
+        );
+        scene.add(stars);
+      }
+
+      // ===== SPIRIT PARTICLES (enhanced) =====
+      let spiritParticles;
+      {
+        const count = 250;
+        const pos = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          pos[i * 3] = (Math.random() - 0.5) * 16;
+          pos[i * 3 + 1] = (Math.random() - 0.5) * 10;
+          pos[i * 3 + 2] = (Math.random() - 0.5) * 10 - 2;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        spiritParticles = new THREE.Points(
+          geo,
+          new THREE.PointsMaterial({
+            size: 0.03,
+            color: 0x88ffaa,
+            transparent: true,
+            opacity: 0.5,
+            blending: THREE.AdditiveBlending,
+            sizeAttenuation: true,
+          }),
+        );
+        scene.add(spiritParticles);
+      }
+
+      // ===== SWORD TRAIL PARTICLES =====
+      const TRAIL_COUNT = 800;
+      const trailPositions = new Float32Array(TRAIL_COUNT * 3);
+      const trailGeo = new THREE.BufferGeometry();
+      trailGeo.setAttribute(
+        "position",
+        new THREE.BufferAttribute(trailPositions, 3),
+      );
+      const trailMat = new THREE.PointsMaterial({
+        size: 0.018,
+        color: 0x44ffaa,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+        depthWrite: false,
+      });
+      const trailPoints = new THREE.Points(trailGeo, trailMat);
+      scene.add(trailPoints);
+      let trailWriteIdx = 0;
+
+      function emitTrailParticle(pos, vel) {
+        const i = trailWriteIdx % TRAIL_COUNT;
+        trailPositions[i * 3] = pos.x + (Math.random() - 0.5) * 0.02;
+        trailPositions[i * 3 + 1] = pos.y + (Math.random() - 0.5) * 0.02;
+        trailPositions[i * 3 + 2] = pos.z + (Math.random() - 0.5) * 0.02;
+        trailWriteIdx++;
+      }
+
+      function updateTrails(dt) {
+        for (let i = 0; i < TRAIL_COUNT; i++) {
+          trailPositions[i * 3 + 1] += 0.002 * dt * 60; // float up
+          // Recycle particles that floated too high
+          if (trailPositions[i * 3 + 1] > 20) {
+            trailPositions[i * 3] = 0;
+            trailPositions[i * 3 + 1] = -100;
+            trailPositions[i * 3 + 2] = 0;
+          }
+        }
+        trailGeo.attributes.position.needsUpdate = true;
+      }
+
+      // ===== SWORD GEOMETRY =====
+      const swordGeo = (() => {
+        const blade = new THREE.ConeGeometry(0.015, 0.3, 4);
+        blade.scale(0.4, 1, 1);
+        blade.rotateX(Math.PI / 2);
+        blade.translate(0, 0, 0.12);
+        const guard = new THREE.BoxGeometry(0.06, 0.01, 0.018);
+        guard.translate(0, 0, -0.025);
+        const handle = new THREE.CylinderGeometry(0.006, 0.007, 0.085, 6);
+        handle.rotateX(Math.PI / 2);
+        handle.translate(0, 0, -0.07);
+        return mergeGeometries([blade, guard, handle]) || blade;
+      })();
+
+      const swordMat = new THREE.MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0.9,
+      });
+      // V1: sword target color tracks mode
+      const _swordTargetColor = new THREE.Color(0x00ff88);
+      const _modeColorMap = {
+        DRAGON: new THREE.Color("#00ff88"),
+        LOTUS: new THREE.Color("#ffaa44"),
+        SHIELD: new THREE.Color("#88ccff"),
+        DAGENG: new THREE.Color("#ff4488"),
+      };
+      const auraMat = new THREE.MeshBasicMaterial({
+        color: 0xffdd44,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+      });
+
+      const auraGeo = (() => {
+        const g = new THREE.ConeGeometry(0.018, 0.32, 4);
+        g.scale(0.5, 1, 1);
+        g.rotateX(Math.PI / 2);
+        g.translate(0, 0, 0.12);
+        return g;
+      })();
+
+      const swordMesh = new THREE.InstancedMesh(
+        swordGeo,
+        swordMat,
+        CFG.swordCount,
+      );
+      swordMesh.frustumCulled = false;
+      scene.add(swordMesh);
+
+      const auraMesh = new THREE.InstancedMesh(
+        auraGeo,
+        auraMat,
+        CFG.swordCount,
+      );
+      auraMesh.frustumCulled = false;
+      scene.add(auraMesh);
+
+      // Sword physics state
+      const swordPositions = [];
+      const swordVelocities = [];
+      for (let i = 0; i < CFG.swordCount; i++) {
+        swordPositions.push(
+          new THREE.Vector3(
+            (Math.random() - 0.5) * 3,
+            0.5 + Math.random() * 2,
+            -1.5 + (Math.random() - 0.5) * 1.5,
+          ),
+        );
+        swordVelocities.push(new THREE.Vector3());
+      }
+
+      // ===== LIGHTNING =====
+      const lightningGeo = new THREE.BufferGeometry();
+      lightningGeo.setAttribute(
+        "position",
+        new THREE.BufferAttribute(new Float32Array(100 * 6), 3),
+      );
+      const lightningMat = new THREE.LineBasicMaterial({
+        color: 0xffdd44,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+      });
+      const lightning = new THREE.LineSegments(lightningGeo, lightningMat);
+      scene.add(lightning);
+      let lightningIntensity = 0;
+
+      // ===== MAGIC CIRCLE =====
+      const mcUniforms = { uTime: { value: 0 }, uOpacity: { value: 0 } };
+      const magicCircle = new THREE.Mesh(
+        new THREE.PlaneGeometry(6, 6),
+        new THREE.ShaderMaterial({
+          uniforms: mcUniforms,
+          vertexShader: `varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+          fragmentShader: `varying vec2 vUv;uniform float uTime;uniform float uOpacity;void main(){vec2 c=vec2(0.5);float d=distance(vUv,c);float r1=smoothstep(0.48,0.485,d)-smoothstep(0.49,0.495,d);float r2=smoothstep(0.42,0.425,d)-smoothstep(0.43,0.435,d);float a=atan(vUv.y-0.5,vUv.x-0.5);float runes=sin(a*10.0+uTime)*0.5+0.5;float runeR=smoothstep(0.35,0.45,d)*runes*smoothstep(0.45,0.35,d);vec3 col=vec3(1.0,0.9,0.4);float alpha=(r1+r2+runeR*0.3)*uOpacity;gl_FragColor=vec4(col,alpha);}`,
+          transparent: true,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      );
+      magicCircle.rotation.x = -Math.PI / 2;
+      magicCircle.visible = false;
+      scene.add(magicCircle);
+      let mcOpacity = 0;
+
+      // ===== VR GROUND REFERENCE =====
+      const groundGrid = new THREE.GridHelper(20, 40, 0x003311, 0x001a0a);
+      groundGrid.position.y = 0;
+      groundGrid.material.transparent = true;
+      groundGrid.material.opacity = 0.3;
+      scene.add(groundGrid);
+
+      // Ground circle (修仙法阵地面)
+      const groundCircleGeo = new THREE.RingGeometry(1.5, 1.55, 64);
+      const groundCircleMat = new THREE.MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0.2,
+        side: THREE.DoubleSide,
+      });
+      const groundCircle = new THREE.Mesh(groundCircleGeo, groundCircleMat);
+      groundCircle.rotation.x = -Math.PI / 2;
+      groundCircle.position.y = 0.01;
+      scene.add(groundCircle);
+
+      const groundCircle2 = new THREE.Mesh(
+        new THREE.RingGeometry(2.0, 2.03, 64),
+        new THREE.MeshBasicMaterial({
+          color: 0x00ff88,
+          transparent: true,
+          opacity: 0.12,
+          side: THREE.DoubleSide,
+        }),
+      );
+      groundCircle2.rotation.x = -Math.PI / 2;
+      groundCircle2.position.y = 0.01;
+      scene.add(groundCircle2);
+
+      // ===== D9: VR TELEPORT SYSTEM =====
+      const teleportRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.3, 0.35, 32),
+        new THREE.MeshBasicMaterial({
+          color: 0x00ffaa,
+          transparent: true,
+          opacity: 0,
+          side: THREE.DoubleSide,
+        }),
+      );
+      teleportRing.rotation.x = -Math.PI / 2;
+      teleportRing.position.y = 0.02;
+      scene.add(teleportRing);
+
+      const teleportArcGeo = new THREE.BufferGeometry();
+      teleportArcGeo.setAttribute(
+        "position",
+        new THREE.BufferAttribute(new Float32Array(30 * 3), 3),
+      );
+      const teleportArc = new THREE.Line(
+        teleportArcGeo,
+        new THREE.LineBasicMaterial({
+          color: 0x00ffaa,
+          transparent: true,
+          opacity: 0,
+        }),
+      );
+      scene.add(teleportArc);
+
+      let teleportTarget = null;
+      let teleportAiming = false;
+      // Pre-allocated vectors for teleport (avoid per-frame GC on Quest 3)
+      const _tpDir = new THREE.Vector3();
+      const _tpOrigin = new THREE.Vector3();
+      const _tpP = new THREE.Vector3();
+      const _tpV = new THREE.Vector3();
+      const _tpStep = new THREE.Vector3();
+      const _tpCamPos = new THREE.Vector3();
+      const _tpOffset = new THREE.Vector3();
+
+      function updateTeleport(session, delta) {
+        if (!session) return;
+        teleportAiming = false;
+        teleportTarget = null;
+
+        for (const source of session.inputSources) {
+          if (!source.gamepad || source.handedness !== "left") continue;
+          const gp = source.gamepad;
+          if (gp.axes.length < 4) continue;
+
+          const fwd = -gp.axes[3]; // forward on left stick (negative Y = forward)
+          if (fwd < 0.5) continue; // only activate when pushed significantly forward
+
+          teleportAiming = true;
+          const ctrl = source.handedness === "left" ? controller1 : controller2;
+          if (!ctrl) continue;
+
+          _tpDir.set(0, 0, -1).applyQuaternion(ctrl.quaternion);
+          ctrl.getWorldPosition(_tpOrigin);
+          _tpV.copy(_tpDir).multiplyScalar(5);
+          const gravity = -9.8;
+          _tpP.copy(_tpOrigin);
+          const dt2 = 0.05;
+
+          // Write arc directly to buffer (zero allocations)
+          const arr = teleportArc.geometry.attributes.position.array;
+          let arcLen = 0;
+          for (let step = 0; step < 30; step++) {
+            arr[arcLen * 3] = _tpP.x;
+            arr[arcLen * 3 + 1] = _tpP.y;
+            arr[arcLen * 3 + 2] = _tpP.z;
+            arcLen++;
+            _tpV.y += gravity * dt2;
+            _tpStep.copy(_tpV).multiplyScalar(dt2);
+            _tpP.add(_tpStep);
+            if (_tpP.y <= 0.02) {
+              teleportTarget = _tpP; // reuse vector, copy coords when needed
+              arr[arcLen * 3] = _tpP.x;
+              arr[arcLen * 3 + 1] = 0;
+              arr[arcLen * 3 + 2] = _tpP.z;
+              arcLen++;
+              break;
+            }
+          }
+          // Zero remaining arc points
+          for (let i = arcLen; i < 30; i++) {
+            arr[i * 3] = arr[i * 3 + 1] = arr[i * 3 + 2] = 0;
+          }
+          teleportArc.geometry.attributes.position.needsUpdate = true;
+          teleportArc.geometry.setDrawRange(0, arcLen);
+          break;
+        }
+
+        // Update visuals
+        teleportArc.material.opacity = teleportAiming ? 0.6 : 0;
+        if (teleportTarget) {
+          teleportRing.position.set(teleportTarget.x, 0.02, teleportTarget.z);
+          teleportRing.material.opacity = 0.5;
+          teleportRing.rotation.z += delta * 2;
+        } else {
+          teleportRing.material.opacity = 0;
+        }
+
+        // Execute teleport on left trigger while aiming
+        if (teleportTarget && teleportAiming) {
+          for (const source of session.inputSources) {
+            if (source.handedness !== "left" || !source.gamepad) continue;
+            if (source.gamepad.buttons[0]?.pressed) {
+              camera.getWorldPosition(_tpCamPos);
+              _tpOffset.set(
+                teleportTarget.x - _tpCamPos.x,
+                0,
+                teleportTarget.z - _tpCamPos.z,
+              );
+              const baseRef = renderer.xr.getReferenceSpace();
+              if (baseRef) {
+                const teleportXR = new XRRigidTransform(
+                  { x: -_tpOffset.x, y: 0, z: -_tpOffset.z, w: 1 },
+                  { x: 0, y: 0, z: 0, w: 1 },
+                );
+                const newRef = baseRef.getOffsetReferenceSpace(teleportXR);
+                renderer.xr.setReferenceSpace(newRef);
+              }
+              teleportTarget = null;
+              triggerHaptic(controller1);
+              break;
+            }
+          }
+        }
+      }
+
+      // ===== HAND GLOW SPHERES (VR visual feedback) =====
+      const handGlowL = new THREE.Mesh(
+        new THREE.SphereGeometry(0.04, 16, 16),
+        new THREE.MeshBasicMaterial({
+          color: 0x00ff88,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+        }),
+      );
+      const handGlowR = handGlowL.clone();
+      handGlowL.material = handGlowL.material.clone();
+      handGlowR.material = handGlowR.material.clone();
+      scene.add(handGlowL);
+      scene.add(handGlowR);
+
+      // ===== VR SPATIAL HUD =====
+      let vrHudGroup = null;
+      function createVRHud() {
+        vrHudGroup = new THREE.Group();
+        // Mode text using sprite
+        const canvas = document.createElement("canvas");
+        canvas.width = 512;
+        canvas.height = 128;
+        const ctx = canvas.getContext("2d");
+        vrHudGroup.userData.canvas = canvas;
+        vrHudGroup.userData.ctx = ctx;
+        vrHudGroup.userData.texture = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({
+          map: vrHudGroup.userData.texture,
+          transparent: true,
+          opacity: 0.8,
+        });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.scale.set(0.6, 0.15, 1);
+        sprite.position.set(0, -0.15, -0.8);
+        vrHudGroup.add(sprite);
+        vrHudGroup.userData.sprite = sprite;
+        return vrHudGroup;
+      }
+
+      let _vrHudLastMode = "",
+        _vrHudLastQi = -1,
+        _vrHudLastSpell = -1,
+        _vrHudLastFly = false,
+        _vrHudLastMed = false,
+        _vrHudLastRealm = -1,
+        _vrHudLastFps = 0;
+      function updateVRHud() {
+        if (!vrHudGroup) return;
+        // Dirty check: only redraw when state changes (saves ~2ms/frame on Quest 3)
+        const curMode = state.gestureMode,
+          curQi = Math.round(cult.qi),
+          curSpell = cult.currentSpellIdx,
+          curFly = cult.flying,
+          curMed = cult.meditating,
+          curRealm = cult.realmIdx,
+          curFps = lastDisplayFPS;
+        if (
+          curMode === _vrHudLastMode &&
+          curQi === _vrHudLastQi &&
+          curSpell === _vrHudLastSpell &&
+          curFly === _vrHudLastFly &&
+          curMed === _vrHudLastMed &&
+          curRealm === _vrHudLastRealm &&
+          curFps === _vrHudLastFps
+        )
+          return;
+        _vrHudLastMode = curMode;
+        _vrHudLastQi = curQi;
+        _vrHudLastSpell = curSpell;
+        _vrHudLastFly = curFly;
+        _vrHudLastMed = curMed;
+        _vrHudLastRealm = curRealm;
+        _vrHudLastFps = curFps;
+        const { canvas, ctx, texture } = vrHudGroup.userData;
+        ctx.clearRect(0, 0, 512, 128);
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.beginPath();
+        ctx.roundRect(0, 0, 512, 128, 20);
+        ctx.fill();
+        const m = state.gestureMode;
+        // Row 1: Sword formation mode
+        ctx.fillStyle = modeColors[m] || "#00ff88";
+        ctx.font = "bold 28px sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(modeNames[m] || m, 16, 32);
+        // Row 1 right: Realm
+        ctx.fillStyle = REALMS[cult.realmIdx].color;
+        ctx.font = "bold 22px sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText(REALMS[cult.realmIdx].name, 496, 32);
+        // Row 2: Qi bar
+        const barX = 16,
+          barY = 46,
+          barW = 480,
+          barH = 14;
+        ctx.fillStyle = "rgba(0,50,100,0.5)";
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 7);
+        ctx.fill();
+        const qiFrac = cult.qi / cult.maxQi;
+        ctx.fillStyle = "#00ccff";
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, Math.max(0, barW * qiFrac), barH, 7);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          `${Math.round(cult.qi)}/${cult.maxQi}`,
+          barX + barW / 2,
+          barY + 11,
+        );
+        // Row 3: Current spell + status
+        const dispSpell = SPELLS[spellOrder[cult.currentSpellIdx]];
+        ctx.fillStyle = dispSpell.color;
+        ctx.font = "18px sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(`法术: ${dispSpell.name}`, 16, 88);
+        // Flight/meditation status
+        ctx.fillStyle = "#88eeff";
+        ctx.textAlign = "center";
+        if (cult.flying) ctx.fillText("⚔️ 御剑飞行中", 256, 88);
+        else if (cult.meditating) ctx.fillText("🧘 打坐修炼中", 256, 88);
+        // Row 3 right: FPS
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.font = "14px sans-serif";
+        ctx.textAlign = "right";
+        const vrFps = lastDisplayFPS > 0 ? lastDisplayFPS : "...";
+        ctx.fillText(`${vrFps} FPS`, 496, 88);
+        // Row 4: Controls hint
+        ctx.fillStyle = "rgba(255,255,255,0.25)";
+        ctx.font = "12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          "A=施法 B=换术 X=飞行 Y=打坐 | Trigger=切阵 Grip=切阵",
+          256,
+          118,
+        );
+        texture.needsUpdate = true;
+      }
+
+      // ===== WEBXR HAND TRACKING =====
+      let hand1, hand2, controller1, controller2;
+      let handModelFactory, controllerModelFactory;
+      const _xrModReady = Promise.all([
+        import("three/addons/webxr/XRControllerModelFactory.js"),
+        import("three/addons/webxr/XRHandModelFactory.js"),
+      ]).then(([cm, hm]) => {
+        controllerModelFactory = new cm.XRControllerModelFactory();
+        handModelFactory = new hm.XRHandModelFactory();
+      });
+
+      function setupXRInputs() {
+        // Controllers
+        controller1 = renderer.xr.getController(0);
+        controller2 = renderer.xr.getController(1);
+        scene.add(controller1);
+        scene.add(controller2);
+
+        const cModel1 = controllerModelFactory.createControllerModel(
+          renderer.xr.getControllerGrip(0),
+        );
+        const cModel2 = controllerModelFactory.createControllerModel(
+          renderer.xr.getControllerGrip(1),
+        );
+        const grip1 = renderer.xr.getControllerGrip(0);
+        const grip2 = renderer.xr.getControllerGrip(1);
+        grip1.add(cModel1);
+        grip2.add(cModel2);
+        scene.add(grip1);
+        scene.add(grip2);
+
+        // Hands
+        hand1 = renderer.xr.getHand(0);
+        hand2 = renderer.xr.getHand(1);
+        const hModel1 = handModelFactory.createHandModel(hand1, "mesh");
+        const hModel2 = handModelFactory.createHandModel(hand2, "mesh");
+        hand1.add(hModel1);
+        hand2.add(hModel2);
+        scene.add(hand1);
+        scene.add(hand2);
+
+        // Controller ray visualization (VR feedback)
+        const rayGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, 0),
+          new THREE.Vector3(0, 0, -3),
+        ]);
+        const rayMat = new THREE.LineBasicMaterial({
+          color: 0x00ff88,
+          transparent: true,
+          opacity: 0.4,
+        });
+        controller1.add(new THREE.Line(rayGeo.clone(), rayMat.clone()));
+        controller2.add(new THREE.Line(rayGeo.clone(), rayMat.clone()));
+
+        // Controller events for mode switching
+        controller1.addEventListener("selectstart", cycleModeController);
+        controller2.addEventListener("selectstart", cycleModeController);
+        controller1.addEventListener("squeezestart", cycleModeController);
+        controller2.addEventListener("squeezestart", cycleModeController);
+
+        // Attach VR HUD to camera (D4 fix: only add camera to scene once)
+        const hud = createVRHud();
+        camera.add(hud);
+        if (!camera.parent) scene.add(camera);
+      }
+
+      const modeOrder = ["LOTUS", "DRAGON", "SHIELD", "DAGENG"];
+      function cycleModeController(event) {
+        if (teleportAiming) return; // B3 fix: don't cycle mode while aiming teleport
+        const idx = modeOrder.indexOf(state.gestureMode);
+        state.gestureMode = modeOrder[(idx + 1) % modeOrder.length];
+        state.isTracking = true;
+        playModeSwitch();
+        updateDroneMode(state.gestureMode);
+        modeSwitchFlash = 1.0; // trigger visual flash
+        triggerHaptic(event?.target);
+      }
+
+      // D8: Haptic feedback for Quest 3 controllers
+      function triggerHaptic(controller) {
+        try {
+          const session = renderer.xr.getSession();
+          if (!session) return;
+          for (const source of session.inputSources) {
+            if (source.gamepad?.hapticActuators?.length > 0) {
+              source.gamepad.hapticActuators[0].pulse(0.6, 100);
+              break;
+            }
+            // WebXR Haptics API (newer)
+            if (source.gamepad?.vibrationActuator) {
+              source.gamepad.vibrationActuator.playEffect("dual-rumble", {
+                duration: 100,
+                strongMagnitude: 0.5,
+                weakMagnitude: 0.3,
+              });
+              break;
+            }
+          }
+        } catch (e) {
+          /* haptics optional */
+        }
+      }
+
+      // ===== GESTURE DETECTION FROM XR HANDS =====
+      // Pre-allocated joint position vectors (avoid 11+ allocations per frame on Quest 3)
+      const _jWrist = new THREE.Vector3(),
+        _jIndexTip = new THREE.Vector3(),
+        _jIndexMcp = new THREE.Vector3();
+      const _jMiddleTip = new THREE.Vector3(),
+        _jMiddleMcp = new THREE.Vector3();
+      const _jRingTip = new THREE.Vector3(),
+        _jRingMcp = new THREE.Vector3();
+      const _jPinkyTip = new THREE.Vector3(),
+        _jPinkyMcp = new THREE.Vector3();
+      const _jThumbTip = new THREE.Vector3(),
+        _jThumbMcp = new THREE.Vector3();
+      const _jPalmCenter = new THREE.Vector3();
+      const _handGlowPos = new THREE.Vector3();
+      const _ctrlWorldPos = new THREE.Vector3();
+
+      function detectXRHandGesture(hand) {
+        const dominated = hand;
+        const joints = dominated.joints;
+        if (!joints || Object.keys(joints).length < 20) return null;
+
+        const getJointPos = (name, out) => {
+          const j = joints[name];
+          if (!j || !j.visible) return null;
+          j.getWorldPosition(out);
+          return out;
+        };
+
+        const wrist = getJointPos("wrist", _jWrist);
+        const indexTip = getJointPos("index-finger-tip", _jIndexTip);
+        const indexMcp = getJointPos("index-finger-metacarpal", _jIndexMcp);
+        const middleTip = getJointPos("middle-finger-tip", _jMiddleTip);
+        const middleMcp = getJointPos("middle-finger-metacarpal", _jMiddleMcp);
+        const ringTip = getJointPos("ring-finger-tip", _jRingTip);
+        const ringMcp = getJointPos("ring-finger-metacarpal", _jRingMcp);
+        const pinkyTip = getJointPos("pinky-finger-tip", _jPinkyTip);
+        const pinkyMcp = getJointPos("pinky-finger-metacarpal", _jPinkyMcp);
+        const thumbTip = getJointPos("thumb-tip", _jThumbTip);
+        const thumbMcp = getJointPos("thumb-metacarpal", _jThumbMcp);
+
+        if (
+          !wrist ||
+          !indexTip ||
+          !middleTip ||
+          !ringTip ||
+          !pinkyTip ||
+          !thumbTip
+        )
+          return null;
+        if (!indexMcp || !middleMcp || !ringMcp || !pinkyMcp || !thumbMcp)
+          return null;
+
+        // Finger extension: tip-to-wrist distance > metacarpal-to-wrist distance * threshold
+        const isExtended = (tip, mcp) => {
+          const tipDist = tip.distanceTo(wrist);
+          const mcpDist = mcp.distanceTo(wrist);
+          return tipDist > mcpDist * 1.04;
+        };
+
+        const index = isExtended(indexTip, indexMcp);
+        const middle = isExtended(middleTip, middleMcp);
+        const ring = isExtended(ringTip, ringMcp);
+        const pinky = isExtended(pinkyTip, pinkyMcp);
+        const thumb = isExtended(thumbTip, thumbMcp);
+
+        const extCount = [index, middle, ring, pinky, thumb].filter(
+          Boolean,
+        ).length;
+
+        // Palm center for target position
+        _jPalmCenter.copy(wrist).lerp(middleMcp, 0.6);
+        const palmCenter = _jPalmCenter;
+
+        let gesture = "LOTUS";
+        const isFist = extCount <= 1;
+        const isOpenPalm = index && middle && ring && pinky;
+        const isRock = index && pinky && !middle && !ring;
+        const isSwordFinger = index && middle && !ring && !pinky;
+        const isGun = thumb && index && !middle && !ring && !pinky;
+
+        if (isFist) gesture = "SHIELD";
+        else if (isRock) gesture = "DAGENG";
+        else if (isGun || isSwordFinger) gesture = "DRAGON";
+        else if (isOpenPalm) gesture = "LOTUS";
+
+        return {
+          gesture,
+          palmCenter,
+          indexTip,
+          isTracking: true,
+        };
+      }
+
+      // ===== SWORD UPDATE =====
+      const dummy = new THREE.Object3D();
+      let currentScales = new Float32Array(CFG.swordCount).fill(1);
+      // P1+P3+P4+P6+P7+P8: Pre-allocated temp vectors (zero per-frame GC)
+      const _tgt = new THREE.Vector3();
+      const _currentTarget = new THREE.Vector3();
+      const _fwdVec = new THREE.Vector3();
+      const _rightVec = new THREE.Vector3();
+      const _upVec = new THREE.Vector3(0, 1, 0);
+      const _tmpVec1 = new THREE.Vector3(); // separation/dragon path
+      const _tmpVec2 = new THREE.Vector3(); // lookTarget
+      const _tmpVec3 = new THREE.Vector3(); // lookTarget secondary
+      const _downVec = new THREE.Vector3(0, -1, 0);
+      const _defaultDir = new THREE.Vector3(0, 0, -1);
+      const _handDiffVec = new THREE.Vector3();
+      const _ptrVec = new THREE.Vector3();
+      const _ptrWorldPos = new THREE.Vector3();
+      const _spellOrigin = new THREE.Vector3();
+
+      function updateSwords(time, delta) {
+        const dt = Math.min(delta, 1 / 30);
+        const target = state.targetPosition;
+        const mode = state.gestureMode;
+        const tracking = state.isTracking;
+        const history = state.pathHistory;
+
+        _currentTarget.copy(target);
+        let currentTarget = _currentTarget;
+        if (!tracking) {
+          currentTarget.set(
+            Math.sin(time * 0.5) * 0.8,
+            1.2 + Math.cos(time * 0.4) * 0.5,
+            -2 + Math.sin(time * 0.3) * 0.4,
+          );
+          const _histRecycle = history.pop();
+          _histRecycle.copy(currentTarget);
+          history.unshift(_histRecycle);
+        } else if (mode === "DRAGON") {
+          // Extend path
+          const last = history[0];
+          const dir = state.lastDirection;
+          if (dir.length() > 0.001) {
+            const _hRec = history.pop();
+            _hRec.copy(last).addScaledVector(dir, 0.04);
+            history.unshift(_hRec);
+          }
+        }
+
+        const activeCount = Math.min(adaptiveSwordCount, CFG.swordCount);
+        swordMesh.count = activeCount;
+        auraMesh.count = activeCount;
+        for (let i = 0; i < activeCount; i++) {
+          const pos = swordPositions[i];
+          const vel = swordVelocities[i];
+          const tgt = _tgt;
+
+          if (mode === "SHIELD" && tracking) {
+            const phi = Math.acos(1 - (2 * (i + 0.5)) / CFG.swordCount);
+            const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+            const ox =
+              CFG.shieldRadius *
+              Math.sin(phi) *
+              Math.cos(theta + time * CFG.shieldOrbitSpeed);
+            const oy =
+              CFG.shieldRadius *
+              Math.sin(phi) *
+              Math.sin(theta + time * CFG.shieldOrbitSpeed);
+            const oz = CFG.shieldRadius * Math.cos(phi);
+            const rx = ox * Math.cos(time * 0.3) - oz * Math.sin(time * 0.3);
+            const rz = ox * Math.sin(time * 0.3) + oz * Math.cos(time * 0.3);
+            tgt.set(
+              currentTarget.x + rx,
+              currentTarget.y + oy,
+              currentTarget.z + rz,
+            );
+            tgt.x += Math.sin(time * 3 + i) * 0.025;
+            tgt.y += Math.cos(time * 3 + i * 0.7) * 0.025;
+          } else if (mode === "LOTUS" || !tracking) {
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+            const minR = 0.8,
+              maxR = CFG.lotusRadius;
+            const t2 = i / (CFG.swordCount - 1);
+            const r = minR + (maxR - minR) * Math.sqrt(t2);
+            const theta = i * goldenAngle + time * CFG.lotusRotateSpeed;
+            const breathe = 1 + Math.sin(time * 2) * 0.05;
+            const cr = r * breathe;
+            tgt.set(
+              currentTarget.x + cr * Math.cos(theta),
+              currentTarget.y + cr * Math.sin(theta),
+              currentTarget.z + Math.sin(time * 2 + i * 0.1) * 0.025,
+            );
+          } else if (mode === "DAGENG" && tracking) {
+            if (i === 0) {
+              tgt.set(currentTarget.x, currentTarget.y + 0.7, currentTarget.z);
+            } else {
+              const ei = i - 1,
+                ec = CFG.swordCount - 1;
+              const layerCount = 10;
+              const perLayer = Math.max(1, Math.floor(ec / layerCount));
+              const layerIdx = Math.floor(ei / perLayer);
+              const idxInLayer = ei % perLayer;
+              const radius = CFG.dagengRadius + layerIdx * 0.2 + 0.3;
+              const dir2 = layerIdx % 2 === 0 ? 1 : -1;
+              const theta =
+                (idxInLayer / perLayer) * Math.PI * 2 +
+                time * CFG.dagengRotateSpeed * dir2;
+              const hCenter = currentTarget.y - 1.5;
+              const hRand = Math.sin(ei * 13.1) * 0.5 + 0.5;
+              const height = hCenter + (hRand - 0.5) * CFG.dagengHeight;
+              tgt.set(
+                currentTarget.x + Math.cos(theta) * radius,
+                height,
+                currentTarget.z + Math.sin(theta) * radius,
+              );
+            }
+          } else {
+            // DRAGON
+            if (i < 5) {
+              tgt.copy(currentTarget);
+              tgt.x += Math.sin(time * 8 + i) * 0.04;
+              tgt.y += Math.cos(time * 8 + i) * 0.04;
+            } else {
+              const pathIdx = i * 0.8;
+              const idxA = Math.min(Math.floor(pathIdx), history.length - 1);
+              const idxB = Math.min(idxA + 1, history.length - 1);
+              const alpha = pathIdx - Math.floor(pathIdx);
+              if (history[idxA] && history[idxB]) {
+                tgt.lerpVectors(history[idxA], history[idxB], alpha);
+              } else {
+                tgt.copy(currentTarget);
+              }
+              tgt.x += Math.sin(time * 10 + i * 0.5) * 0.025;
+              tgt.y += Math.cos(time * 10 + i * 0.5) * 0.025;
+              const ns = CFG.noiseScale,
+                na = CFG.noiseStrength;
+              tgt.x += noise3D(pos.x * ns, pos.y * ns, time) * na;
+              tgt.y += noise3D(pos.y * ns, pos.z * ns, time + 100) * na;
+              tgt.z += noise3D(pos.z * ns, pos.x * ns, time + 200) * na;
+            }
+          }
+
+          // Steering
+          let speed = mode === "SHIELD" ? CFG.sprintSpeed : CFG.maxSpeed;
+          const distToTarget = tgt.distanceTo(pos);
+          if (distToTarget > 0.6) speed = CFG.sprintSpeed;
+          else if (distToTarget < 0.15)
+            speed = (distToTarget * CFG.maxSpeed) / 0.15;
+
+          const desired = tgt.sub(pos);
+          const d = desired.length();
+          if (d > 0) {
+            desired.normalize();
+            desired.multiplyScalar(d < 1.5 ? speed * (d / 1.5) : speed);
+          }
+          const steer = desired.sub(vel);
+          const sf = mode === "SHIELD" || mode === "LOTUS" ? 3 : 1;
+          steer.clampLength(0, CFG.steerForce * dt * sf);
+          vel.add(steer);
+
+          // Separation
+          if (i > 0 && mode !== "SHIELD" && (mode !== "LOTUS" || !tracking)) {
+            const prev = swordPositions[i - 1];
+            _tmpVec1.copy(pos).sub(prev);
+            const dd = _tmpVec1.length();
+            if (dd < CFG.separationDist && dd > 0.001) {
+              _tmpVec1.normalize().multiplyScalar(CFG.separationForce * dt);
+              vel.add(_tmpVec1);
+            }
+          }
+
+          pos.addScaledVector(vel, dt);
+
+          // Emit trail particles for fast swords (every 4th sword to save perf)
+          if (i % 4 === 0 && vel.length() > 0.5) {
+            emitTrailParticle(pos, vel);
+          }
+
+          // Matrix update
+          dummy.position.copy(pos);
+
+          // Look direction (zero-alloc)
+          if (mode === "SHIELD" && tracking) {
+            if (vel.length() > 0.01) {
+              _tmpVec2.copy(vel).normalize();
+              _tmpVec3.copy(pos).add(_tmpVec2);
+            } else {
+              _tmpVec2.copy(pos).sub(currentTarget);
+              _tmpVec3.set(-_tmpVec2.z, 0, _tmpVec2.x).normalize().add(pos);
+            }
+          } else if (mode === "LOTUS") {
+            _tmpVec2.copy(pos).sub(currentTarget).normalize();
+            _tmpVec3.copy(pos).add(_tmpVec2);
+          } else if (mode === "DAGENG" && tracking) {
+            _tmpVec3.copy(pos).add(_downVec);
+          } else {
+            _tmpVec3.copy(pos).add(vel.length() > 0.01 ? vel : _defaultDir);
+          }
+          dummy.lookAt(_tmpVec3);
+
+          // Scale
+          let targetScale = 1;
+          if (mode === "DAGENG" && tracking) {
+            targetScale = i === 0 ? 5 : 1.5;
+          }
+          const lerpSpd = i === 0 && mode === "DAGENG" ? 0.01 : 0.02;
+          currentScales[i] = THREE.MathUtils.lerp(
+            currentScales[i],
+            targetScale,
+            lerpSpd,
+          );
+          dummy.scale.setScalar(currentScales[i]);
+
+          dummy.updateMatrix();
+          swordMesh.setMatrixAt(i, dummy.matrix);
+
+          // Aura
+          const isActive =
+            mode === "SHIELD"
+              ? Math.sin(time * 30 + i * 0.5) > 0.0
+              : Math.sin(time * 20 + i * 0.7) > 0.3;
+          const auraScale = currentScales[i] * (isActive ? 1.3 : 1.0);
+          if (!isActive && !(i === 0 && mode === "DAGENG")) {
+            dummy.scale.set(0, 0, 0);
+          } else {
+            dummy.scale.setScalar(auraScale);
+          }
+          dummy.updateMatrix();
+          auraMesh.setMatrixAt(i, dummy.matrix);
+          dummy.scale.setScalar(currentScales[i]);
+        }
+
+        swordMesh.instanceMatrix.needsUpdate = true;
+        auraMesh.instanceMatrix.needsUpdate = true;
+      }
+
+      // ===== LIGHTNING UPDATE =====
+      function updateLightning(time) {
+        const targetI = state.gestureMode === "DAGENG" ? 1 : 0;
+        lightningIntensity = THREE.MathUtils.lerp(
+          lightningIntensity,
+          targetI,
+          0.02,
+        );
+        const flashSpeed = 15 + lightningIntensity * 10;
+        const flashThreshold = 0.7 - lightningIntensity * 0.3;
+        const flash = Math.sin(time * flashSpeed) > flashThreshold;
+        lightning.visible = flash && state.isTracking;
+        if (!flash || !state.isTracking) return;
+
+        const count = Math.floor(30 + lightningIntensity * 70);
+        const maxDist = 0.7 + lightningIntensity * 3;
+        const jitter = 0.025 + lightningIntensity * 0.04;
+        const arr = lightning.geometry.attributes.position.array;
+        let idx = 0;
+        for (let i = 0; i < count && idx < arr.length - 6; i++) {
+          const a = Math.floor(Math.random() * CFG.swordCount);
+          const b = Math.floor(Math.random() * CFG.swordCount);
+          const pA = swordPositions[a],
+            pB = swordPositions[b];
+          if (pA.distanceTo(pB) < maxDist) {
+            arr[idx++] = pA.x + (Math.random() - 0.5) * jitter;
+            arr[idx++] = pA.y + (Math.random() - 0.5) * jitter;
+            arr[idx++] = pA.z + (Math.random() - 0.5) * jitter;
+            arr[idx++] = pB.x + (Math.random() - 0.5) * jitter;
+            arr[idx++] = pB.y + (Math.random() - 0.5) * jitter;
+            arr[idx++] = pB.z + (Math.random() - 0.5) * jitter;
+          }
+        }
+        while (idx < arr.length) arr[idx++] = 0;
+        lightning.geometry.attributes.position.needsUpdate = true;
+      }
+
+      // ===== MAGIC CIRCLE UPDATE =====
+      function updateMagicCircle(time) {
+        const targetOp =
+          state.gestureMode === "DAGENG" && state.isTracking ? 1 : 0;
+        mcOpacity = THREE.MathUtils.lerp(mcOpacity, targetOp, 0.05);
+        mcUniforms.uTime.value = time;
+        mcUniforms.uOpacity.value = mcOpacity;
+        magicCircle.rotation.z = time * 0.1;
+        magicCircle.visible = mcOpacity > 0.01;
+        if (magicCircle.visible) {
+          magicCircle.position.set(
+            state.targetPosition.x,
+            state.targetPosition.y + 2.0,
+            state.targetPosition.z,
+          );
+        }
+      }
+
+      // ===== SPIRIT PARTICLES UPDATE =====
+      function updateSpirits(time) {
+        if (!spiritParticles) return;
+        const arr = spiritParticles.geometry.attributes.position.array;
+        for (let i = 0; i < arr.length / 3; i++) {
+          arr[i * 3 + 1] += Math.sin(time + i) * 0.001;
+          if (arr[i * 3 + 1] > 4) arr[i * 3 + 1] = -4;
+        }
+        spiritParticles.geometry.attributes.position.needsUpdate = true;
+      }
+
+      // ===== UI UPDATE =====
+      const statusEl = document.getElementById("status");
+      const modeUIEl = document.getElementById("modeUI");
+      const infoEl = document.getElementById("info");
+      // P2: Cache modeUI sub-element refs
+      const modeUIH2 = modeUIEl.querySelector("h2");
+      const modeUIp = modeUIEl.querySelector("p");
+      // P1: Cache skill slot refs
+      const _slotCache = {};
+      document.querySelectorAll(".skill-slot[data-skill]").forEach((el) => {
+        _slotCache[el.dataset.skill] = {
+          slot: el,
+          cd: el.querySelector(".cd-overlay"),
+        };
+      });
+      // Cache all frequently-accessed DOM elements
+      const _qiBarEl = document.getElementById("qi-bar");
+      const _flyIndEl = document.getElementById("fly-indicator");
+      const _spellFlashEl = document.getElementById("spell-flash");
+      const _realmEl = document.getElementById("realm-display");
+      const _btEl = document.getElementById("breakthrough");
+      const _medVigEl = document.getElementById("med-vignette");
+
+      const modeNames = {
+        DRAGON: "🐉 游龙随行",
+        LOTUS: "🌸 莲花现世",
+        SHIELD: "🛡️ 剑盾护体",
+        DAGENG: "🤘 大庚剑阵",
+      };
+      const modeColors = {
+        DRAGON: "#00ff88",
+        LOTUS: "#ffaa44",
+        SHIELD: "#88ccff",
+        DAGENG: "#ff4488",
+      };
+      const modeHints = {
+        DRAGON: "剑指 · 飞剑随指而动",
+        LOTUS: "张掌 · 莲花绽放",
+        SHIELD: "握拳 · 万剑护体",
+        DAGENG: "结印 · 天降剑雨",
+      };
+
+      function updateUI() {
+        if (state.isVR) {
+          statusEl.style.display = "none";
+          modeUIEl.style.display = "none";
+          return;
+        }
+        const m = state.gestureMode;
+        const c = modeColors[m] || "#00ff88";
+        // B4 fix: Don't overwrite status when cultivation message is active
+        if (!statusEl._ct) {
+          if (state.isTracking) {
+            statusEl.style.color = c;
+            statusEl.textContent = modeNames[m] || m;
+          } else {
+            statusEl.style.color = "#ff6666";
+            statusEl.textContent = "⏳ 等待手势...";
+          }
+        }
+        modeUIH2.style.color = c;
+        modeUIH2.textContent = "青竹蜂云剑";
+        modeUIp.textContent = state.isTracking
+          ? modeHints[m] || ""
+          : "请伸出手掌激活飞剑...";
+      }
+
+      // ===== GESTURE DEBOUNCE =====
+      let pendingGesture = null;
+      let gestureStartTime = 0;
+      let confirmedGesture = "LOTUS";
+      const GESTURE_DELAY = 0.3;
+
+      function processHandGesture(result, time) {
+        if (!result) {
+          state.isTracking = false;
+          return;
+        }
+
+        state.isTracking = true;
+
+        // Position mapping
+        const mode = confirmedGesture;
+        if (mode === "DRAGON") {
+          state.targetPosition.copy(result.indexTip);
+          // Update path
+          const last = state.pathHistory[0];
+          _handDiffVec.copy(result.indexTip).sub(last);
+          if (_handDiffVec.length() > 0.01) {
+            state.lastDirection.copy(_handDiffVec.normalize());
+            const _hRec1 = state.pathHistory.pop();
+            _hRec1.copy(result.indexTip);
+            state.pathHistory.unshift(_hRec1);
+          }
+        } else {
+          state.targetPosition.copy(result.palmCenter);
+        }
+
+        // Debounce gesture
+        if (result.gesture !== pendingGesture) {
+          pendingGesture = result.gesture;
+          gestureStartTime = time;
+        } else if (
+          time - gestureStartTime > GESTURE_DELAY &&
+          result.gesture !== confirmedGesture
+        ) {
+          confirmedGesture = result.gesture;
+          state.gestureMode = result.gesture;
+          updateDroneMode(state.gestureMode);
+        }
+      }
+
+      // ===== FLAT MODE (MOUSE/TOUCH) =====
+      let flatMode = false;
+      function enableFlatMode() {
+        flatMode = true;
+        state.isTracking = true;
+        camera.position.set(0, 2.5, 6);
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 1.2, -1);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 15;
+        controls.minDistance = 0.5;
+        controls.update();
+        // Adjust fog for flat viewing
+        scene.fog.near = 15;
+        scene.fog.far = 50;
+
+        // Mouse/touch for target
+        const onPointer = (e) => {
+          const rect = renderer.domElement.getBoundingClientRect();
+          const cx = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+          const cy = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
+          const ndcX = ((cx - rect.left) / rect.width) * 2 - 1;
+          const ndcY = -((cy - rect.top) / rect.height) * 2 + 1;
+          _ptrVec.set(ndcX, ndcY, 0.5).unproject(camera);
+          _ptrVec.sub(camera.position).normalize();
+          const dist = (1.2 - camera.position.y) / _ptrVec.y || 3;
+          _ptrWorldPos
+            .copy(camera.position)
+            .addScaledVector(_ptrVec, Math.abs(dist));
+          state.targetPosition.copy(_ptrWorldPos);
+          if (state.gestureMode === "DRAGON") {
+            const last = state.pathHistory[0];
+            _handDiffVec.copy(_ptrWorldPos).sub(last);
+            if (_handDiffVec.length() > 0.01) {
+              state.lastDirection.copy(_handDiffVec.normalize());
+              const _hRec2 = state.pathHistory.pop();
+              _hRec2.copy(_ptrWorldPos);
+              state.pathHistory.unshift(_hRec2);
+            }
+          }
+        };
+        renderer.domElement.addEventListener("pointermove", onPointer);
+        renderer.domElement.addEventListener(
+          "touchmove",
+          (e) => {
+            e.preventDefault();
+            onPointer(e);
+          },
+          { passive: false },
+        );
+
+        // Double-click to cycle mode (T3-2: avoids conflict with OrbitControls drag)
+        renderer.domElement.addEventListener("dblclick", () => {
+          const idx = modeOrder.indexOf(state.gestureMode);
+          state.gestureMode = modeOrder[(idx + 1) % modeOrder.length];
+          confirmedGesture = state.gestureMode;
+          modeSwitchFlash = 1.0;
+          playModeSwitch();
+          updateDroneMode(state.gestureMode);
+        });
+
+        // WASD movement keys
+        const keys = {};
+        document.addEventListener("keydown", (e) => {
+          keys[e.key.toLowerCase()] = true;
+        });
+        document.addEventListener("keyup", (e) => {
+          keys[e.key.toLowerCase()] = false;
+        });
+        window._flatKeys = keys;
+
+        // Cultivation keyboard bindings
+        document.addEventListener("keydown", (e) => {
+          const k = e.key.toLowerCase();
+          if (k === "1") castSpell("fire");
+          else if (k === "2") castSpell("ice");
+          else if (k === "3") castSpell("lightning");
+          else if (k === "4") castSpell("sword");
+          else if (k === "f") toggleFlight();
+          else if (k === "m") toggleMeditation();
+          else if (k === "q") {
+            const idx2 = modeOrder.indexOf(state.gestureMode);
+            state.gestureMode = modeOrder[(idx2 + 1) % modeOrder.length];
+            confirmedGesture = state.gestureMode;
+            modeSwitchFlash = 1.0;
+            playModeSwitch();
+            updateDroneMode(state.gestureMode);
+          }
+        });
+
+        // Show cultivation HUD + device-adaptive controls hint
+        document.getElementById("cultivation-hud").style.display = "flex";
+        createAtmosphericParticles();
+        const hint = document.getElementById("controls-hint");
+        // Adapt hint text to device capabilities
+        if (Sense.touch && !Sense.fine) {
+          hint.innerHTML =
+            '<b style="color:#00ff88">触控修仙</b><br/>' +
+            "拖动=移动剑阵 双击=切换阵型<br/>" +
+            "右划🔥火球 上划⚡雷法 下划❄️冰封 左划⚔️剑气<br/>" +
+            (Sense.gyro ? "倾斜手机=瞄准方向" : "");
+        } else if (_gp.on) {
+          hint.innerHTML =
+            '<b style="color:#00ff88">手柄修仙</b><br/>' +
+            "左摇杆=移动 右摇杆=瞄准<br/>" +
+            "A🔥火球 X⚔️剑气 LB❄️冰封 RB⚡雷法<br/>" +
+            "Y=飞行 Select=打坐 B/Start=切阵";
+        } else {
+          hint.innerHTML =
+            '<b style="color:#00ff88">修仙操控</b><br/>WASD移动 Space↑ Shift↓<br/>1🔥火球 2❄️冰封 3⚡雷法 4⚔️剑气<br/>F御剑飞行 M打坐修炼 双击切阵';
+        }
+        hint.style.display = "block";
+        hint.style.opacity = "1";
+        setTimeout(() => {
+          hint.style.opacity = "0";
+          setTimeout(() => (hint.style.display = "none"), 2000);
+        }, 8000);
+      }
+
+      function updateFlatMovement(delta) {
+        const keys = window._flatKeys;
+        if (!keys || !controls || cult.flying) return;
+        const speed = 3 * delta;
+        camera.getWorldDirection(_fwdVec);
+        _fwdVec.y = 0;
+        _fwdVec.normalize();
+        const forward = _fwdVec;
+        _rightVec.crossVectors(forward, _upVec);
+        const right = _rightVec;
+        // Keyboard WASD
+        let fwdAmt = 0,
+          rightAmt = 0;
+        if (keys["w"]) fwdAmt += 1;
+        if (keys["s"]) fwdAmt -= 1;
+        if (keys["a"]) rightAmt -= 1;
+        if (keys["d"]) rightAmt += 1;
+        // Gamepad left stick (blended seamlessly)
+        if (keys["_gpY"]) fwdAmt -= keys["_gpY"]; // stick Y is inverted
+        if (keys["_gpX"]) rightAmt += keys["_gpX"];
+        if (Math.abs(fwdAmt) > 0.01) {
+          camera.position.addScaledVector(forward, speed * fwdAmt);
+          controls.target.addScaledVector(forward, speed * fwdAmt);
+        }
+        if (Math.abs(rightAmt) > 0.01) {
+          camera.position.addScaledVector(right, speed * rightAmt);
+          controls.target.addScaledVector(right, speed * rightAmt);
+        }
+        if (keys[" "]) {
+          camera.position.y += speed;
+          controls.target.y += speed;
+        }
+        if (keys["shift"]) {
+          camera.position.y -= speed;
+          controls.target.y -= speed;
+        }
+      }
+
+      // ===== SETUP XR INPUTS AT INIT (D2 fix: must be before session) =====
+      _xrModReady
+        .then(() => setupXRInputs())
+        .catch((e) => console.warn("XR modules unavailable:", e));
+
+      // ===== VR SESSION LIFECYCLE =====
+      // VR Tutorial Panel (floating in front of user on first entry)
+      let vrTutorialGroup = null;
+      let vrTutorialTimer = 0;
+      function createVRTutorial() {
+        vrTutorialGroup = new THREE.Group();
+        const canvas = document.createElement("canvas");
+        canvas.width = 768;
+        canvas.height = 512;
+        const ctx = canvas.getContext("2d");
+        // Draw tutorial card
+        ctx.fillStyle = "rgba(0,20,10,0.85)";
+        ctx.beginPath();
+        ctx.roundRect(0, 0, 768, 512, 24);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0,255,136,0.4)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(4, 4, 760, 504, 22);
+        ctx.stroke();
+        ctx.fillStyle = "#00ff88";
+        ctx.font = "bold 36px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("御 剑 指 南", 384, 55);
+        // Gesture guide
+        const gestures = [
+          ["🌸", "张掌 (Open Palm)", "莲花现世", "#ffaa44"],
+          ["🐉", "剑指 (Sword Finger)", "游龙随行", "#00ff88"],
+          ["🛡️", "握拳 (Fist)", "剑盾护体", "#88ccff"],
+          ["🤘", "结印 (Rock)", "大庚剑阵", "#ff4488"],
+        ];
+        gestures.forEach(([icon, gesture, name, color], i) => {
+          const y = 100 + i * 95;
+          ctx.fillStyle = color;
+          ctx.font = "40px sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(icon, 60, y + 35);
+          ctx.font = "bold 28px sans-serif";
+          ctx.fillText(name, 130, y + 20);
+          ctx.fillStyle = "rgba(255,255,255,0.6)";
+          ctx.font = "22px sans-serif";
+          ctx.fillText(gesture, 130, y + 52);
+        });
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.font = "20px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          "Trigger/Grip=切换阵型 | 摇杆=移动 | 适配所有VR设备",
+          384,
+          490,
+        );
+        const tex = new THREE.CanvasTexture(canvas);
+        const mat = new THREE.SpriteMaterial({
+          map: tex,
+          transparent: true,
+          opacity: 0.95,
+        });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(1.2, 0.8, 1);
+        sprite.position.set(0, 0, -1.5);
+        vrTutorialGroup.add(sprite);
+        vrTutorialGroup.userData.sprite = sprite;
+        camera.add(vrTutorialGroup);
+        vrTutorialTimer = 8.0; // show for 8 seconds
+      }
+
+      // Mode switch flash effect
+      let modeSwitchFlash = 0;
+      const flashMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 8, 8),
+        new THREE.MeshBasicMaterial({
+          color: 0x00ff88,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          side: THREE.BackSide,
+        }),
+      );
+      scene.add(flashMesh);
+
+      renderer.xr.addEventListener("sessionstart", () => {
+        state.isVR = true;
+        document.getElementById("overlay").classList.add("hidden");
+        initAudio();
+        scene.fog.near = 25;
+        scene.fog.far = 80;
+        document.getElementById("cultivation-hud").style.display = "flex";
+        if (!cult.atmosParticles) createAtmosphericParticles();
+        // Show VR tutorial on first entry
+        if (!vrTutorialGroup) createVRTutorial();
+        else {
+          vrTutorialGroup.visible = true;
+          vrTutorialTimer = 8.0;
+        }
+        console.log("🥽 VR session started");
+      });
+
+      renderer.xr.addEventListener("sessionend", () => {
+        state.isVR = false;
+        document.getElementById("overlay").classList.remove("hidden");
+        scene.fog.near = 6;
+        scene.fog.far = 40;
+        console.log("🖥️ VR session ended");
+      });
+
+      // ===== VR BUTTON (D1 fix: use Three.js official VRButton) =====
+      const vrBtn = document.getElementById("enterVR");
+      const flatBtn = document.getElementById("enterFlat");
+
+      // WebXR features for ALL VR headsets (Quest/Pico/Vision/Vive/Index/WMR)
+      const sessionInit = {
+        optionalFeatures: [
+          "local-floor",
+          "bounded-floor",
+          "hand-tracking",
+          "layers",
+          "anchors",
+          "plane-detection",
+          "mesh-detection",
+        ],
+        requiredFeatures: ["local-floor"],
+      };
+      const vrButtonEl = VRButton.createButton(renderer, sessionInit);
+      // Style the official VRButton to match our UI, then hide our custom button
+      vrButtonEl.style.cssText = "display:none"; // hidden, we use our own styled button
+      document.body.appendChild(vrButtonEl);
+
+      // Bridge: our styled button triggers the official VRButton
+      async function startVR() {
+        try {
+          initAudio(); // D3 fix
+          vrButtonEl.click(); // delegate to Three.js VRButton which handles all edge cases
+        } catch (e) {
+          console.error("VR start error:", e);
+          alert("VR启动失败: " + e.message);
+        }
+      }
+
+      // ╔══════════════════════════════════════════════════════════════╗
+      // ║  道·自入 Auto-Entry — 无为而入 · The user does nothing     ║
+      // ║  Sense → adapt → enter. No buttons needed, no choices.     ║
+      // ╚══════════════════════════════════════════════════════════════╝
+      async function daoAutoEntry() {
+        // Probe XR with retries (works for ALL VR headsets)
+        let xrOK = false;
+        if (navigator.xr) {
+          for (let i = 0; i < 8; i++) {
+            try {
+              xrOK = await navigator.xr.isSessionSupported("immersive-vr");
+              if (xrOK) break;
+            } catch (e) {}
+            await new Promise((r) => setTimeout(r, 400 * Math.pow(1.5, i)));
+          }
+        }
+        // Fallback: VRButton may have detected it
+        if (
+          !xrOK &&
+          vrButtonEl.textContent &&
+          vrButtonEl.textContent.includes("VR")
+        )
+          xrOK = true;
+
+        const capEl = document.getElementById("overlay")
+          ? document.querySelector(".subtitle")
+          : null;
+
+        if (xrOK) {
+          // VR device detected — enable button but also show capabilities
+          vrBtn.textContent = "进入VR修仙";
+          vrBtn.disabled = false;
+          vrBtn.onclick = startVR;
+          if (capEl)
+            capEl.innerHTML =
+              "大庚剑阵 · VR修仙体验<br/>挥手御剑 · 结印变阵<br/><small style='color:rgba(255,255,255,.35)'>道·感知: " +
+              Sense.label +
+              "</small>";
+          console.log("道·自入 VR可用 ·", Sense.label);
+          // On HMD devices, auto-enter VR after brief delay
+          if (Sense.hmd) {
+            setTimeout(() => {
+              if (!flatMode && !state.isVR) {
+                try {
+                  startVR();
+                } catch (e) {}
+              }
+            }, 2000);
+          }
+        } else {
+          // No VR — auto-enter flat mode
+          vrBtn.textContent = Sense.mobile ? "触控进入" : "点击进入";
+          vrBtn.disabled = false;
+          vrBtn.onclick = () => {
+            document.getElementById("overlay").classList.add("hidden");
+            enableFlatMode();
+          };
+          if (capEl)
+            capEl.innerHTML =
+              "大庚剑阵 · 万设备修仙体验<br/>自动适配一切 · " +
+              (Sense.touch ? "触控操作" : "鼠标操作") +
+              "<br/><small style='color:rgba(255,255,255,.35)'>道·感知: " +
+              Sense.label +
+              "</small>";
+          console.log("道·自入 平面模式 ·", Sense.label);
+          // Auto-enter flat mode after brief display
+          setTimeout(
+            () => {
+              if (!flatMode && !state.isVR) {
+                document.getElementById("overlay").classList.add("hidden");
+                enableFlatMode();
+              }
+            },
+            Sense.mobile ? 1500 : 2500,
+          );
+        }
+      }
+      daoAutoEntry();
+
+      flatBtn.onclick = () => {
+        document.getElementById("overlay").classList.add("hidden");
+        enableFlatMode();
+      };
+
+      // ===== RENDER LOOP =====
+      const clock = new THREE.Clock();
+      let lastTime = 0;
+      const _gpBtnPrev = { rA: false, rB: false, lX: false, lY: false };
+
+      renderer.setAnimationLoop((timestamp, frame) => {
+        const time = clock.getElapsedTime();
+        const delta = time - lastTime;
+        lastTime = time;
+
+        // 道·输入: drain all universal input intents
+        drainDaoIntents();
+
+        // XR Hand tracking
+        if (state.isVR && frame) {
+          let result = null;
+          let activeHandIdx = -1;
+          for (let hi = 0; hi < 2; hi++) {
+            const hand = hi === 0 ? hand1 : hand2;
+            if (hand && hand.joints && Object.keys(hand.joints).length > 15) {
+              result = detectXRHandGesture(hand);
+              if (result) {
+                activeHandIdx = hi;
+                break;
+              }
+            }
+          }
+
+          // Update hand glow spheres
+          for (let hi = 0; hi < 2; hi++) {
+            const hand = hi === 0 ? hand1 : hand2;
+            const glow = hi === 0 ? handGlowL : handGlowR;
+            if (hand && hand.joints) {
+              const wrist = hand.joints["wrist"];
+              if (wrist && wrist.visible) {
+                wrist.getWorldPosition(_handGlowPos);
+                glow.position.copy(_handGlowPos);
+                glow.material.opacity = hi === activeHandIdx ? 0.6 : 0.2;
+                glow.scale.setScalar(hi === activeHandIdx ? 2.5 : 1.0);
+              }
+            }
+          }
+
+          if (!result) {
+            // Fallback to controller position + thumbstick movement
+            const session = renderer.xr.getSession();
+            if (session) {
+              for (const source of session.inputSources) {
+                if (source.gamepad && source.gripSpace) {
+                  const gp = source.gamepad;
+                  if (gp.axes.length >= 4) {
+                    const flyMul = cult.flying ? 4.0 : 1.0;
+                    const dx = gp.axes[2] * 0.08 * flyMul;
+                    const dy = gp.axes[3] * 0.08 * flyMul;
+                    state.targetPosition.x += dx;
+                    state.targetPosition.z += dy;
+                    // VR flight: move through XR reference space
+                    if (
+                      cult.flying &&
+                      (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001)
+                    ) {
+                      try {
+                        const baseRef = renderer.xr.getReferenceSpace();
+                        if (baseRef) {
+                          const off = new XRRigidTransform(
+                            { x: -dx, y: 0, z: -dy, w: 1 },
+                            { x: 0, y: 0, z: 0, w: 1 },
+                          );
+                          renderer.xr.setReferenceSpace(
+                            baseRef.getOffsetReferenceSpace(off),
+                          );
+                        }
+                      } catch (e) {}
+                      cult.qi = Math.max(0, cult.qi - 2 * delta);
+                      if (cult.qi <= 0) toggleFlight();
+                    }
+                  }
+                  // Get controller world position
+                  const ctrl =
+                    source.handedness === "left" ? controller1 : controller2;
+                  if (ctrl) ctrl.getWorldPosition(_ctrlWorldPos);
+                  if (_ctrlWorldPos.length() > 0.1) {
+                    state.targetPosition.lerp(_ctrlWorldPos, 0.1);
+                    state.isTracking = true;
+                  }
+                  // VR Spell casting: A/X buttons (index 4) = cast spell, B/Y (index 5) = cycle spell / toggle actions
+                  if (gp.buttons.length > 4) {
+                    if (source.handedness === "right") {
+                      if (gp.buttons[4]?.pressed && !_gpBtnPrev.rA) {
+                        castSpell(spellOrder[cult.currentSpellIdx]);
+                        triggerHaptic(controller2);
+                      }
+                      _gpBtnPrev.rA = !!gp.buttons[4]?.pressed;
+                      if (gp.buttons[5]?.pressed && !_gpBtnPrev.rB) {
+                        cult.currentSpellIdx =
+                          (cult.currentSpellIdx + 1) % spellOrder.length;
+                        showCultMsg(
+                          SPELLS[spellOrder[cult.currentSpellIdx]].name,
+                        );
+                      }
+                      _gpBtnPrev.rB = !!gp.buttons[5]?.pressed;
+                    } else {
+                      if (gp.buttons[4]?.pressed && !_gpBtnPrev.lX) {
+                        toggleFlight();
+                        triggerHaptic(controller1);
+                      }
+                      _gpBtnPrev.lX = !!gp.buttons[4]?.pressed;
+                      if (gp.buttons[5]?.pressed && !_gpBtnPrev.lY) {
+                        toggleMeditation();
+                        triggerHaptic(controller1);
+                      }
+                      _gpBtnPrev.lY = !!gp.buttons[5]?.pressed;
+                    }
+                  }
+                  break;
+                }
+              }
+            }
+          } else {
+            processHandGesture(result, time);
+          }
+
+          // D9: Update teleport system
+          updateTeleport(renderer.xr.getSession(), delta);
+
+          // Update VR HUD
+          updateVRHud();
+        }
+
+        // Animate ground circle + clouds
+        groundCircle.rotation.z = time * 0.1;
+        groundCircle2.rotation.z = -time * 0.08;
+        cloudsGroup.children.forEach((c, i) => {
+          c.position.x += Math.sin(time * 0.05 + i) * 0.003;
+          c.position.y += Math.cos(time * 0.03 + i) * 0.001;
+        });
+
+        // T3-1: Direct uniform updates (no scene.traverse)
+        if (window._skyUniforms) window._skyUniforms.uTime.value = time;
+        if (window._waterUniforms) window._waterUniforms.uTime.value = time;
+
+        // V1: Sword color lerp to mode
+        const _mc = _modeColorMap[state.gestureMode] || _modeColorMap.DRAGON;
+        swordMat.color.lerp(_mc, 0.06);
+        trailMat.color.lerp(_mc, 0.04);
+
+        // VR tutorial fade-out
+        if (vrTutorialGroup && vrTutorialTimer > 0) {
+          vrTutorialTimer -= delta;
+          if (vrTutorialTimer <= 2) {
+            const fade = Math.max(0, vrTutorialTimer / 2);
+            vrTutorialGroup.userData.sprite.material.opacity = fade * 0.95;
+          }
+          if (vrTutorialTimer <= 0) vrTutorialGroup.visible = false;
+        }
+
+        // Mode switch flash animation
+        if (modeSwitchFlash > 0) {
+          modeSwitchFlash -= delta * 4;
+          flashMesh.material.opacity = Math.max(0, modeSwitchFlash * 0.3);
+          flashMesh.position.copy(state.targetPosition);
+          flashMesh.scale.setScalar(1 + (1 - modeSwitchFlash) * 3);
+          flashMesh.material.color.set(
+            modeColors[state.gestureMode] || "#00ff88",
+          );
+        } else {
+          flashMesh.material.opacity = 0;
+        }
+
+        // Animate cultivation energy orbs
+        orbGroup.children.forEach((orb) => {
+          orb.position.y =
+            orb.userData.baseY +
+            Math.sin(time * orb.userData.speed + orb.userData.phase) * 0.3;
+          orb.material.opacity =
+            0.3 + Math.sin(time * 1.5 + orb.userData.phase) * 0.2;
+        });
+
+        // Cultivation updates (flat mode)
+        if (!state.isVR) {
+          if (cult.flying) updateFlight(delta);
+          else updateFlatMovement(delta);
+        }
+        updateSpellParticles(delta);
+        updateMeditation(time, delta);
+        updateAtmosParticles(time, delta);
+
+        updateSwords(time, delta);
+        updateTrails(delta);
+        updateLightning(time);
+        updateMagicCircle(time);
+        updateSpirits(time);
+        updateUI();
+
+        if (controls) controls.update();
+
+        updateFPSDisplay();
+        renderer.render(scene, camera);
+      });
+
+      // ===== RESIZE =====
+      window.addEventListener("resize", () => {
+        const w = window.innerWidth,
+          h = window.innerHeight;
+        if (w > 0 && h > 0) {
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        }
+      });
+
+      // D7 fix: FPS display using render loop frame counting (no setInterval)
+      let fpsFrameCount = 0,
+        fpsLastTime = performance.now(),
+        lastDisplayFPS = 0;
+      function updateFPSDisplay() {
+        fpsFrameCount++;
+        const now = performance.now();
+        const elapsed = (now - fpsLastTime) / 1000;
+        if (elapsed >= 1) {
+          const fps = Math.round(fpsFrameCount / elapsed);
+          lastDisplayFPS = fps;
+          if (!state.isVR) {
+            infoEl.textContent = `${adaptiveSwordCount} swords | ${fps} FPS | ${Sense.label}`;
+          }
+          adaptPerformance(fps);
+          fpsFrameCount = 0;
+          fpsLastTime = now;
+        }
+      }
+
+      console.log("🗡️ VR大庚剑阵 loaded. Swords:", CFG.swordCount);
+    </script>
+  </body>
+</html>

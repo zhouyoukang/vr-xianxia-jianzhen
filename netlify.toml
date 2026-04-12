@@ -1,0 +1,37 @@
+# ═══════════════════════════════════════════════════════════
+#  道·部署 — 万法归宗 · 不受任何条件制约
+#  All headers serve one purpose: let the app run ANYWHERE
+# ═══════════════════════════════════════════════════════════
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, HEAD, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Range"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # Grant ALL sensor/XR/media permissions — 道法自然, no constraint
+    Permissions-Policy = "xr-spatial-tracking=(*), gyroscope=(*), accelerometer=(*), magnetometer=(*), camera=(*), microphone=(*), gamepad=(*), fullscreen=(*), display-capture=(*)"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=120, stale-while-revalidate=600"
+
+[[headers]]
+  for = "/*.json"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/*.ico"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# No catch-all redirect — multi-page static site, each HTML stands on its own
