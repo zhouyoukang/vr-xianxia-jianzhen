@@ -6,14 +6,6 @@
       name="viewport"
       content="width=device-width,initial-scale=1.0,user-scalable=no"
     />
-    <meta
-      http-equiv="Permissions-Policy"
-      content="xr-spatial-tracking=(*), gyroscope=(*), accelerometer=(*), magnetometer=(*), camera=(*), microphone=(*), gamepad=(*), fullscreen=(*)"
-    />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>"
-    />
     <title>修仙界 · WorldLabs × VR仙侠</title>
     <style>
       * {
@@ -26,7 +18,6 @@
         color: #fff;
         font-family: "Microsoft YaHei", sans-serif;
         overflow: hidden;
-        touch-action: none;
       }
       #canvas-container {
         position: fixed;
@@ -516,12 +507,11 @@
       <div class="hud-pill" id="hud-quality">●○○</div>
       <div
         class="hud-pill"
-        id="hud-fs"
-        onclick="toggleFS()"
+        id="hud-pano"
         style="cursor: pointer"
-        title="全屏"
+        title="P键 · 360°全景截图"
       >
-        ⛶
+        📷 传影
       </div>
     </div>
 
@@ -544,7 +534,14 @@
         border: 1px solid rgba(0, 255, 136, 0.15);
         transition: opacity 2s;
       "
-    ></div>
+    >
+      <b style="color: #00ff88">修仙操控</b><br />
+      🖱️ 鼠标环视 WASD移动<br />
+      1🔥火球 2❄️冰封 3⚡雷法 4⚔️剑气<br />
+      F 御剑飞行 M 打坐修炼<br />
+      Q 切阵 E 画质 5-9切场景<br />
+      Space↑ Shift↓ 🥽VR手势
+    </div>
 
     <div id="cultivation-hud">
       <div id="realm-display">炼气一层</div>
@@ -750,7 +747,6 @@
       import { OrbitControls } from "three/addons/controls/OrbitControls.js";
       import {
         SparkRenderer,
-        SplatMesh,
         VRButton,
         XrHands,
         FpsMovement,
@@ -766,39 +762,7 @@
       }
 
       // ===== CONFIGURATION =====
-      const IS_MOBILE = (() => {
-        if (
-          /Android|Quest|Oculus|iPhone|iPad|iPod|webOS|BlackBerry/i.test(
-            navigator.userAgent,
-          )
-        )
-          return true;
-        if (
-          navigator.maxTouchPoints > 1 &&
-          !matchMedia("(pointer:fine)").matches
-        )
-          return true;
-        return window.innerWidth < 768;
-      })();
-      // 道·感知: GPU能力自适应 — 唯变所适
-      const _GPU_QUALITY = (() => {
-        try {
-          if (IS_MOBILE) return "low";
-          const c = document.createElement("canvas");
-          const gl = c.getContext("webgl2") || c.getContext("webgl");
-          if (!gl) return "low";
-          const ext = gl.getExtension("WEBGL_debug_renderer_info");
-          if (!ext) return "low";
-          const gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
-          if (
-            /RTX|RX\s[6-9]|Radeon\s[6-9]|Apple M[2-9]|Adreno 7[4-9]/i.test(gpu)
-          )
-            return "medium";
-          return "low";
-        } catch (e) {
-          return "low";
-        }
-      })();
+      const IS_MOBILE = /Android|iPhone|iPad|Quest/i.test(navigator.userAgent);
       const CFG = {
         swordCount: IS_MOBILE ? 40 : 120,
         trailLength: IS_MOBILE ? 8 : 20,
@@ -821,7 +785,7 @@
         currentWorldId: null,
         currentSplat: null,
         scenes: [],
-        quality: _GPU_QUALITY, // 道·感知: auto-detect GPU → low(100k) or medium(500k)
+        quality: "medium", // medium=500k — Quest 3 Adreno 740 handles this well, much better visual
         playerPos: new THREE.Vector3(0, 0, 0),
         playerVelocity: new THREE.Vector3(),
       };
@@ -998,196 +962,6 @@
         location.hostname === "127.0.0.1" ||
         location.hostname.startsWith("192.168.");
 
-      // ╔══════════════════════════════════════════════════════════════╗
-      // ║  道·感知 Sense — device capability detection                ║
-      // ╚══════════════════════════════════════════════════════════════╝
-      const Sense = (() => {
-        const ua = navigator.userAgent;
-        const mobile = IS_MOBILE;
-        const touch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-        const fine = matchMedia("(pointer:fine)").matches;
-        const gyro = "DeviceOrientationEvent" in window;
-        const hmd =
-          /Quest|Oculus|Pico|VIVE|Valve Index|Windows Mixed Reality/i.test(ua);
-        let hasGamepad = false;
-        window.addEventListener("gamepadconnected", () => (hasGamepad = true), {
-          once: true,
-        });
-        if (navigator.getGamepads) {
-          for (const p of navigator.getGamepads()) {
-            if (p) {
-              hasGamepad = true;
-              break;
-            }
-          }
-        }
-        const label =
-          (hmd ? "HMD" : mobile ? "Mobile" : "Desktop") +
-          (touch ? "+Touch" : "") +
-          (hasGamepad ? "+Gamepad" : "") +
-          (gyro && mobile ? "+Gyro" : "");
-        return { mobile, touch, fine, gyro, hmd, hasGamepad, label };
-      })();
-      console.log("道·感知:", Sense.label);
-
-      // ╔══════════════════════════════════════════════════════════════╗
-      // ║  道·输入 DaoInput — touch/gyro/gamepad universal input      ║
-      // ╚══════════════════════════════════════════════════════════════╝
-      const _touch = {
-        x: 0,
-        y: 0,
-        active: false,
-        startX: 0,
-        startY: 0,
-        startT: 0,
-        lastTap: 0,
-      };
-      if (Sense.touch) {
-        document.addEventListener(
-          "touchstart",
-          (e) => {
-            _touch.active = true;
-            _touch.x = e.touches[0].clientX;
-            _touch.y = e.touches[0].clientY;
-            _touch.startX = _touch.x;
-            _touch.startY = _touch.y;
-            _touch.startT = performance.now();
-            const now = performance.now();
-            if (now - _touch.lastTap < 350) window._daoIntent_cycleMode = true;
-            _touch.lastTap = now;
-          },
-          { passive: true },
-        );
-        document.addEventListener(
-          "touchmove",
-          (e) => {
-            if (e.touches.length > 0) {
-              _touch.x = e.touches[0].clientX;
-              _touch.y = e.touches[0].clientY;
-            }
-          },
-          { passive: true },
-        );
-        document.addEventListener(
-          "touchend",
-          (e) => {
-            if (e.touches.length === 0) _touch.active = false;
-            const dx = _touch.x - _touch.startX;
-            const dy = _touch.y - _touch.startY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 60 && performance.now() - _touch.startT < 500) {
-              const angle = Math.atan2(dy, dx);
-              if (angle > -0.7 && angle < 0.7) window._daoIntent_spell = "fire";
-              else if (angle > 0.7 && angle < 2.4)
-                window._daoIntent_spell = "ice";
-              else if (angle < -0.7 && angle > -2.4)
-                window._daoIntent_spell = "lightning";
-              else window._daoIntent_spell = "sword";
-            }
-          },
-          { passive: true },
-        );
-      }
-
-      // Gyroscope input (phones/tablets — tilt to aim)
-      const _gyro = { alpha: 0, beta: 0, gamma: 0, on: false };
-      if (Sense.gyro && Sense.mobile && !Sense.hmd) {
-        const listen = () =>
-          window.addEventListener(
-            "deviceorientation",
-            (e) => {
-              _gyro.alpha = e.alpha || 0;
-              _gyro.beta = e.beta || 0;
-              _gyro.gamma = e.gamma || 0;
-              _gyro.on = true;
-            },
-            { passive: true },
-          );
-        if (
-          typeof DeviceOrientationEvent !== "undefined" &&
-          DeviceOrientationEvent.requestPermission
-        ) {
-          const req = () =>
-            DeviceOrientationEvent.requestPermission()
-              .then((r) => {
-                if (r === "granted") listen();
-              })
-              .catch(() => {});
-          document.addEventListener("click", req, { once: true });
-          document.addEventListener("touchstart", req, { once: true });
-        } else {
-          listen();
-        }
-      }
-
-      // Gamepad input (PS5, Xbox, Switch Pro, generic)
-      const _gp = {
-        on: false,
-        axes: [0, 0, 0, 0],
-        prev: new Array(17).fill(false),
-      };
-      function pollGamepad() {
-        if (!Sense.hasGamepad) return;
-        const pads = navigator.getGamepads();
-        for (const pad of pads) {
-          if (!pad) continue;
-          _gp.on = true;
-          for (let a = 0; a < Math.min(pad.axes.length, 4); a++)
-            _gp.axes[a] = pad.axes[a];
-          for (let b = 0; b < Math.min(pad.buttons.length, 17); b++) {
-            const pressed = pad.buttons[b].pressed;
-            if (pressed && !_gp.prev[b]) {
-              if (b === 0) window._daoIntent_spell = "fire";
-              if (b === 1) window._daoIntent_cycleMode = true;
-              if (b === 2) window._daoIntent_spell = "sword";
-              if (b === 3) window._daoIntent_toggleFlight = true;
-              if (b === 4) window._daoIntent_spell = "ice";
-              if (b === 5) window._daoIntent_spell = "lightning";
-              if (b === 8) window._daoIntent_toggleMed = true;
-              if (b === 9) window._daoIntent_cycleMode = true;
-            }
-            _gp.prev[b] = pressed;
-          }
-          break;
-        }
-      }
-
-      // Unified intent drain (called each frame)
-      function drainDaoIntents() {
-        pollGamepad();
-        if (window._daoIntent_cycleMode) {
-          window._daoIntent_cycleMode = false;
-          cycleMode();
-        }
-        if (window._daoIntent_spell) {
-          const sp = window._daoIntent_spell;
-          window._daoIntent_spell = null;
-          castSpell(sp);
-        }
-        if (window._daoIntent_toggleFlight) {
-          window._daoIntent_toggleFlight = false;
-          toggleFlight();
-        }
-        if (window._daoIntent_toggleMed) {
-          window._daoIntent_toggleMed = false;
-          toggleMeditation();
-        }
-        // Gyroscope → target position (mobile flat mode)
-        if (_gyro.on && !state.isVR && controls) {
-          const gx = Math.max(-1, Math.min(1, _gyro.gamma / 45)) * 3;
-          const gy = Math.max(-1, Math.min(1, (_gyro.beta - 45) / 45)) * 3;
-          state.targetPosition.x += (gx - state.targetPosition.x) * 0.08;
-          state.targetPosition.y += (1.2 - gy - state.targetPosition.y) * 0.08;
-        }
-        // Gamepad right stick → target position
-        if (_gp.on && controls) {
-          if (Math.abs(_gp.axes[2]) > 0.1 || Math.abs(_gp.axes[3]) > 0.1) {
-            state.targetPosition.x += _gp.axes[2] * 0.08;
-            state.targetPosition.z += _gp.axes[3] * 0.08;
-          }
-        }
-      }
-
       const modeColors = {
         LOTUS: "#ffaa44",
         DRAGON: "#00ff88",
@@ -1252,6 +1026,23 @@
           size: 0.05,
         },
       };
+      const REALM_NAMES = [
+        "云端仙宫",
+        "浮空宫殿",
+        "夜幕秘境",
+        "巨石河道",
+        "雪山落日",
+        "天界果园",
+        "山谷花海",
+        "金殿夕照",
+        "紫藤仙径",
+        "幻境魔塔",
+        "仙灵花园",
+        "灵溪幽谷",
+        "蓬莱仙岛",
+        "昆仑道场",
+        "鸿蒙天界",
+      ];
       // Scene Chinese names for gallery display
       const SCENE_CN = {
         "17f76543-a07f-4447-adb0-38a529b9e672": "☁️ 云端仙宫",
@@ -1266,93 +1057,6 @@
         "a6561515-cbb0-4a2d-84a1-d0f4e63e027c": "🐉 龙巢壁炉",
         "9b66855a-e073-4249-825c-a3d065f8b35b": "🌙 暗夜神殿",
         "d2413257-1eac-46f4-82a3-5a5fab222282": "🏘️ 中世纪仙街",
-      };
-      // 道·境: Per-scene atmosphere — 万物各得其所
-      const SCENE_ATMOSPHERE = {
-        "17f76543-a07f-4447-adb0-38a529b9e672": {
-          bg: "#b8cfdf",
-          fog: "#b8cfdf",
-          light: 1.5,
-          fogNear: 40,
-          fogFar: 250,
-        },
-        "660f680d-c31f-4463-8285-b61ad406739e": {
-          bg: "#8899bb",
-          fog: "#8899bb",
-          light: 1.3,
-          fogNear: 200,
-          fogFar: 1500,
-        },
-        "b0029c5e-e7c4-49ee-9649-561f84402f18": {
-          bg: "#3a4a5a",
-          fog: "#3a4a5a",
-          light: 1.0,
-          fogNear: 30,
-          fogFar: 200,
-        },
-        "dc15921b-3a10-4be3-b325-fba5c308560b": {
-          bg: "#8899aa",
-          fog: "#99aabb",
-          light: 1.6,
-          fogNear: 50,
-          fogFar: 300,
-        },
-        "91f34581-0c18-491c-bd2b-9b5078e73df6": {
-          bg: "#6699aa",
-          fog: "#6699aa",
-          light: 1.5,
-          fogNear: 40,
-          fogFar: 250,
-        },
-        "234ae08a-7dee-491b-86f3-f9014113c2f2": {
-          bg: "#7a9a7a",
-          fog: "#7a9a7a",
-          light: 1.4,
-          fogNear: 40,
-          fogFar: 280,
-        },
-        "97583c3d-19d6-4246-86ed-a8d4c9201eab": {
-          bg: "#cc8844",
-          fog: "#aa6633",
-          light: 2.0,
-          fogNear: 20,
-          fogFar: 150,
-        },
-        "3883f06a-ccdb-439a-bef7-ce452d69bad3": {
-          bg: "#8866aa",
-          fog: "#8866aa",
-          light: 1.2,
-          fogNear: 25,
-          fogFar: 180,
-        },
-        "99f7179f-a6c8-49e1-906f-3c4eaa364797": {
-          bg: "#2a0800",
-          fog: "#1a0600",
-          light: 0.8,
-          fogNear: 15,
-          fogFar: 120,
-        },
-        "a6561515-cbb0-4a2d-84a1-d0f4e63e027c": {
-          bg: "#1a1208",
-          fog: "#1a1208",
-          light: 0.7,
-          fogNear: 10,
-          fogFar: 100,
-        },
-        "9b66855a-e073-4249-825c-a3d065f8b35b": {
-          bg: "#080816",
-          fog: "#080816",
-          light: 0.5,
-          fogNear: 15,
-          fogFar: 150,
-        },
-        "d2413257-1eac-46f4-82a3-5a5fab222282": {
-          bg: "#445566",
-          fog: "#445566",
-          light: 1.1,
-          fogNear: 25,
-          fogFar: 180,
-        },
       };
       const cult = {
         qi: 100,
@@ -1372,6 +1076,53 @@
       };
       const spellOrder = ["fire", "ice", "lightning", "sword"];
 
+      // ===== 道·传承 (Persistent Cultivation — localStorage) =====
+      const CULT_KEY = "daojing_cult_v1";
+      function saveCult() {
+        try {
+          localStorage.setItem(
+            CULT_KEY,
+            JSON.stringify({
+              v: 1,
+              realmIdx: cult.realmIdx,
+              exp: cult.exp,
+              t: Date.now(),
+            }),
+          );
+        } catch (_) {}
+      }
+      function loadCult() {
+        try {
+          const s = JSON.parse(localStorage.getItem(CULT_KEY) || "null");
+          if (!s || s.v !== 1) return false;
+          cult.realmIdx = Math.max(
+            0,
+            Math.min(REALMS.length - 1, s.realmIdx | 0),
+          );
+          cult.maxQi = REALMS[cult.realmIdx].qi;
+          cult.qi = cult.maxQi;
+          cult.exp = Math.max(0, +s.exp || 0);
+          cult.qiRegen = 5 + cult.realmIdx * 2;
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }
+      function resetCult() {
+        try {
+          localStorage.removeItem(CULT_KEY);
+        } catch (_) {}
+        cult.realmIdx = 0;
+        cult.maxQi = REALMS[0].qi;
+        cult.qi = cult.maxQi;
+        cult.exp = 0;
+        cult.qiRegen = 5;
+      }
+      const _cultRestored = loadCult();
+      window._saveCult = saveCult;
+      window._loadCult = loadCult;
+      window._resetCult = resetCult;
+
       // ===== RENDERER =====
       const renderer = new THREE.WebGLRenderer({
         antialias: !IS_MOBILE,
@@ -1379,10 +1130,7 @@
         powerPreference: "high-performance",
       });
       renderer.setPixelRatio(
-        Math.min(
-          window.devicePixelRatio,
-          IS_MOBILE ? 1.0 : _GPU_QUALITY === "low" ? 1.5 : 2,
-        ),
+        Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2),
       );
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
@@ -1391,22 +1139,9 @@
       document
         .getElementById("canvas-container")
         .appendChild(renderer.domElement);
-      renderer.domElement.addEventListener(
-        "webglcontextlost",
-        function (e) {
-          e.preventDefault();
-          console.warn("道·WebGL context lost — awaiting restore");
-        },
-        false,
-      );
-      renderer.domElement.addEventListener(
-        "webglcontextrestored",
-        function () {
-          console.log("道·WebGL context restored");
-        },
-        false,
-      );
 
+      // SparkJS renderer — required for proper 3DGS stereo VR rendering
+      const spark = new SparkRenderer({ renderer, maxStdDev: Math.sqrt(5) });
       const localFrame = new THREE.Group();
       let lastCameraPos = new THREE.Vector3(0, 0, 0);
 
@@ -1422,11 +1157,9 @@
       );
       camera.position.set(0, 1.6, 3);
 
-      // 道·架构: SparkRenderer at scene root (SparkJS standard pattern)
-      // localFrame for camera precision in large worlds; spark at root for correct SplatMesh discovery
-      const spark = new SparkRenderer({ renderer, maxStdDev: Math.sqrt(5) });
-      scene.add(spark);
+      // localFrame houses SparkRenderer + camera for floating-point precision in large splat worlds
       scene.add(localFrame);
+      localFrame.add(spark);
       localFrame.add(camera);
 
       let controls = null;
@@ -1441,14 +1174,21 @@
       scene.add(fillLight);
 
       // ===== SPARKJS SPLAT LOADING =====
-      // 道·本: SplatMesh is imported statically above — no fragile dynamic import needed
-      console.log(
-        "✅ SparkJS SplatMesh:",
-        typeof SplatMesh === "function" ? "ready" : "MISSING",
-      );
+      let SplatMesh = null;
+
+      async function loadSparkJS() {
+        try {
+          const spark = await import("@sparkjsdev/spark");
+          SplatMesh = spark.SplatMesh;
+          console.log("✅ SparkJS loaded (unpkg)");
+          return true;
+        } catch (e) {
+          console.error("❌ SparkJS load failed:", e);
+          return false;
+        }
+      }
 
       let _loadingWorld = false;
-      let _splatReady = false; // 道·序: true only after onLoad fires — blocks auto-quality until splat renders
       async function loadWorld(worldId, quality = "low") {
         if (_loadingWorld) return; // Prevent concurrent loads
         _loadingWorld = true;
@@ -1469,39 +1209,29 @@
           if (_hudSceneEl)
             _hudSceneEl.textContent = SCENE_CN[worldId] || `🌍 ${world.name}`;
 
-          // 道·净: Defensive cleanup of previous splat
+          // Remove previous splat
           if (state.currentSplat) {
-            try {
-              state.currentSplat.removeFromParent();
-            } catch (_) {}
-            try {
-              if (state.currentSplat.dispose) state.currentSplat.dispose();
-            } catch (_) {}
+            scene.remove(state.currentSplat);
+            if (state.currentSplat.dispose) state.currentSplat.dispose();
             state.currentSplat = null;
           }
-          // Reset localFrame to origin on scene switch
-          localFrame.position.set(0, 0, 0);
-          lastCameraPos.set(0, 0, 0);
           // Clean up previous fallback panorama textures
           if (scene.background && scene.background.isTexture) {
-            try {
-              scene.background.dispose();
-            } catch (_) {}
+            scene.background.dispose();
             scene.background = null;
           }
           if (scene.environment && scene.environment.isTexture) {
-            try {
-              scene.environment.dispose();
-            } catch (_) {}
+            scene.environment.dispose();
             scene.environment = null;
           }
 
           setLoadProgress(30);
           showLoading(true, "加载Gaussian Splat...");
 
-          // Get SPZ URL by quality — fallback chain: requested → low → high
+          // Get SPZ URL by quality — fallback chain: requested → low
+          const qualityMap = { low: "low", medium: "medium", high: "high" };
           let actualQuality = quality;
-          let spzUrl = world.spz[quality];
+          let spzUrl = world.spz[qualityMap[quality]];
           if (!spzUrl && quality !== "low") {
             spzUrl = world.spz.low;
             actualQuality = "low";
@@ -1515,119 +1245,80 @@
             throw new Error("No SPZ URL available for this world");
           }
 
+          // CDN access strategy: always try direct CDN (CORS-friendly, works on HTTPS + most localhost)
           console.log("🌐 SPZ direct CDN:", spzUrl.substring(0, 80));
 
-          // 道·本: Apply world transform values (used for both SplatMesh path and fallback)
-          const scale = world.scale || 1.0;
-          const groundOff = (world.ground_offset || 0) * scale;
-
-          // 道·境: Scene-adaptive atmosphere (apply before loading for immediate visual feedback)
-          const atmo = SCENE_ATMOSPHERE[worldId];
-          if (atmo) {
-            scene.background = new THREE.Color(atmo.bg);
-            scene.fog = new THREE.Fog(
-              atmo.fog,
-              atmo.fogNear || 60,
-              atmo.fogFar || 400,
-            );
-            mainLight.intensity = atmo.light || 1.2;
-          } else {
-            scene.background = new THREE.Color("#050a1e");
-            scene.fog = new THREE.Fog("#050a1e", 80, 500);
-          }
-
-          // 道·归位: Camera at capture viewpoint — 万物各归其位
-          const eyeY = groundOff || 1.6;
-          const pullback = Math.max(0.5, scale * 0.8);
-          const lookDist = Math.max(2, scale * 2);
-          state.playerPos.set(0, eyeY, pullback);
-          camera.position.set(0, eyeY, pullback);
-          camera.fov = IS_MOBILE ? 65 : 60;
-          camera.near = Math.max(0.01, scale * 0.005);
-          camera.far = Math.max(1000, eyeY * 5, scale * 100);
-          camera.updateProjectionMatrix();
-          if (controls) {
-            controls.target.set(0, eyeY * 0.92, -lookDist);
-            controls.minDistance = 0;
-            controls.maxDistance = Math.max(100, scale * 30);
-            controls.autoRotate = true;
-            controls.autoRotateSpeed = 0.25;
-            controls.update();
-          }
-          console.log(
-            `🎯 道·归位: eyeY=${eyeY.toFixed(1)} scale=${scale.toFixed(2)} groundOff=${groundOff.toFixed(1)} pullback=${pullback.toFixed(1)} lookDist=${lookDist.toFixed(1)}`,
-          );
-
-          // 道·生: Load 3D Gaussian Splat via SparkJS SplatMesh
-          // CRITICAL: SplatMesh MUST be added to scene IMMEDIATELY — SparkRenderer
-          // processes it during the render loop. Awaiting onLoad before scene.add
-          // creates a deadlock (SparkRenderer never sees the mesh → never processes → onLoad never fires).
-          if (typeof SplatMesh === "function") {
+          // Try loading via SparkJS
+          if (SplatMesh) {
             try {
-              setLoadProgress(40);
-              showLoading(true, "加载 Gaussian Splat...");
+              const splat = new SplatMesh({ url: spzUrl });
 
-              _splatReady = false;
-              const splat = new SplatMesh({
-                url: spzUrl,
-                onLoad: (mesh) => {
-                  _splatReady = true;
-                  console.log(
-                    "✅ SPZ onLoad:",
-                    world.name,
-                    "splats ready for rendering",
-                  );
-                  setLoadProgress(100);
-                  showLoading(false);
-                },
-              });
-
-              // Apply world scale & position IMMEDIATELY
+              // Apply world scale — metric_scale_factor converts splat to meters
+              const scale = world.scale || 1.0;
               splat.scale.setScalar(scale);
+
+              // Position splat so ground plane aligns with Y=0
+              // ground_plane_offset = distance from scene center to ground (in local coords)
+              // After scale, ground is at local_y * scale below origin → lift scene UP
+              const groundOff = (world.ground_offset || 0) * scale;
               splat.position.y = groundOff;
+
+              // Identity quaternion — SparkJS handles coordinate conversion internally
               splat.quaternion.identity();
 
-              // 道·架构: Add to scene root (matches SparkJS standard pattern)
-              // SparkRenderer auto-discovers SplatMesh objects during scene traversal
               scene.add(splat);
               state.currentSplat = splat;
 
+              setLoadProgress(90);
+              showLoading(true, "场景就绪!");
+
+              // Position camera INSIDE the splat at eye height above ground
+              const eyeY = 1.6;
+              state.playerPos.set(0, eyeY, 0);
+              camera.position.set(0, eyeY, 0);
+              camera.near = 0.01;
+              camera.far = 2000;
+              camera.updateProjectionMatrix();
+              if (controls) {
+                controls.target.set(0, eyeY, -2);
+                controls.minDistance = 0;
+                controls.maxDistance = 1000;
+                controls.update();
+              }
+              // Push fog far back so splat is fully visible
+              scene.fog = new THREE.Fog("#050a1e", 80, 500);
+
+              setTimeout(() => {
+                setLoadProgress(100);
+                showLoading(false);
+              }, 500);
+
               console.log(
-                `🌐 World loading: ${world.name} (${actualQuality}${actualQuality !== quality ? ", requested " + quality : ""}) url=${spzUrl.substring(0, 60)}...`,
+                `✅ World loaded: ${world.name} (${actualQuality}${actualQuality !== quality ? ", requested " + quality : ""})`,
               );
               if (actualQuality !== quality) state.quality = actualQuality;
               updateSceneSwitcher();
               updateQualityHUD();
               return true;
             } catch (splatErr) {
-              console.warn("⚠️ SparkJS SplatMesh failed:", splatErr);
-              // Fall through to panorama fallback
+              console.warn("SparkJS SplatMesh failed:", splatErr);
             }
-          } else {
-            console.warn("⚠️ SplatMesh not available — using fallback");
           }
 
           // Fallback: show panorama/thumbnail as skybox
           if (world.thumbnail) {
             showLoading(true, "降级: 加载全景图...");
-            setLoadProgress(60);
             const loader = new THREE.TextureLoader();
             loader.setCrossOrigin("anonymous");
-            try {
-              const tex = await new Promise((resolve, reject) => {
-                loader.load(world.thumbnail, resolve, undefined, reject);
-              });
-              tex.mapping = THREE.EquirectangularReflectionMapping;
-              scene.background = tex;
-              scene.environment = tex;
-            } catch (texErr) {
-              console.warn("⚠️ Thumbnail fallback also failed:", texErr);
-            }
+            const tex = await new Promise((resolve, reject) => {
+              loader.load(world.thumbnail, resolve, undefined, reject);
+            });
+            tex.mapping = THREE.EquirectangularReflectionMapping;
+            scene.background = tex;
+            scene.environment = tex;
             setLoadProgress(100);
             showLoading(false);
             console.log(`⚠️ Fallback panorama loaded: ${world.name}`);
-            updateSceneSwitcher();
-            updateQualityHUD();
             return true;
           }
 
@@ -1716,7 +1407,7 @@
       const _xRightVec = new THREE.Vector3();
       const _xUpVec = new THREE.Vector3(0, 1, 0);
       const _xCtrlPos = new THREE.Vector3();
-      const _xSpellOrigin = new THREE.Vector3();
+      let _frameCount = 0;
       let adaptiveSwordCount = CFG.swordCount;
 
       function updateSwords(time, delta) {
@@ -1938,8 +1629,9 @@
         playSpellSound(type);
         const dir = new THREE.Vector3();
         camera.getWorldDirection(dir);
-        _xSpellOrigin.copy(camera.position).addScaledVector(dir, 0.5);
-        const origin = _xSpellOrigin;
+        const origin = camera.position
+          .clone()
+          .add(dir.clone().multiplyScalar(0.5));
         const N = sp.count;
         const geo = new THREE.BufferGeometry();
         const positions = new Float32Array(N * 3),
@@ -2033,8 +1725,7 @@
         if (!cult.flying || !controls) return true;
         const keys = window._flatKeys;
         if (!keys) return true;
-        // 道·飞: Flight speed scales with scene — 御剑自在
-        const spd = cult.flySpd * dt * (state.currentSplat?.scale?.x || 1);
+        const spd = cult.flySpd * dt;
         camera.getWorldDirection(_xFwdVec);
         const fwd = _xFwdVec;
         _xRightVec.crossVectors(fwd, _xUpVec).normalize();
@@ -2175,41 +1866,166 @@
           updateQiBar();
           showCultMsg("恭喜突破 " + REALMS[cult.realmIdx].name + "！");
           playBreakthroughSound();
+          saveCult();
         }
       }
 
+      // ===== 道·传影 (Panorama Capture — cubemap → equirectangular PNG) =====
+      // Derived from Marble's panorama-capture pipeline (see MARBLE_DECONSTRUCTION §10.4)
+      let _panoBusy = false;
+      async function capturePanorama(size) {
+        if (_panoBusy) return false;
+        if (state.isVR) {
+          showCultMsg("VR中无法截图");
+          return false;
+        }
+        _panoBusy = true;
+        const W = size | 0 || 2048;
+        const H = W / 2;
+        const CUBE = Math.min(1024, W / 2);
+        const hudEl = document.getElementById("hud");
+        const swEl = document.getElementById("scene-switcher");
+        const cultEl = document.getElementById("cultivation-hud");
+        const hintEl = document.getElementById("controls-hint");
+        const savedVis = [hudEl, swEl, cultEl, hintEl].map((el) =>
+          el ? el.style.display : null,
+        );
+        [hudEl, swEl, cultEl, hintEl].forEach((el) => {
+          if (el) el.style.display = "none";
+        });
+
+        showCultMsg("道·传影 生成中...");
+        let cubeRT = null,
+          equirectRT = null,
+          mat = null,
+          geo = null;
+        try {
+          await new Promise((r) => requestAnimationFrame(r));
+          cubeRT = new THREE.WebGLCubeRenderTarget(CUBE, {
+            format: THREE.RGBAFormat,
+            type: THREE.UnsignedByteType,
+            generateMipmaps: false,
+          });
+          const cubeCam = new THREE.CubeCamera(0.05, 3000, cubeRT);
+          cubeCam.position.copy(camera.position);
+          const prevBg = scene.background;
+          cubeCam.update(renderer, scene);
+
+          equirectRT = new THREE.WebGLRenderTarget(W, H, {
+            format: THREE.RGBAFormat,
+            type: THREE.UnsignedByteType,
+            generateMipmaps: false,
+          });
+          mat = new THREE.ShaderMaterial({
+            uniforms: { envMap: { value: cubeRT.texture } },
+            vertexShader:
+              "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+            fragmentShader: [
+              "#define PI 3.14159265359",
+              "#define PI2 6.28318530718",
+              "uniform samplerCube envMap;",
+              "varying vec2 vUv;",
+              "void main() {",
+              "  float theta = vUv.x * PI2 - PI;",
+              "  float phi = (1.0 - vUv.y) * PI;",
+              "  vec3 dir = normalize(vec3(sin(theta) * sin(phi), cos(phi), -cos(theta) * sin(phi)));",
+              "  gl_FragColor = textureCube(envMap, dir);",
+              "}",
+            ].join("\n"),
+            depthTest: false,
+            depthWrite: false,
+          });
+          geo = new THREE.PlaneGeometry(2, 2);
+          const quad = new THREE.Mesh(geo, mat);
+          const panoScene = new THREE.Scene();
+          panoScene.add(quad);
+          const orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+          const prevTarget = renderer.getRenderTarget();
+          renderer.setRenderTarget(equirectRT);
+          renderer.render(panoScene, orthoCam);
+          const pixels = new Uint8Array(W * H * 4);
+          renderer.readRenderTargetPixels(equirectRT, 0, 0, W, H, pixels);
+          renderer.setRenderTarget(prevTarget);
+          scene.background = prevBg;
+
+          // Y-flip into canvas (WebGL origin is bottom-left)
+          const cv = document.createElement("canvas");
+          cv.width = W;
+          cv.height = H;
+          const ctx = cv.getContext("2d");
+          const img = ctx.createImageData(W, H);
+          const row = W * 4;
+          for (let y = 0; y < H; y++) {
+            const src = (H - 1 - y) * row;
+            img.data.set(pixels.subarray(src, src + row), y * row);
+          }
+          ctx.putImageData(img, 0, 0);
+
+          const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
+          if (!blob) throw new Error("toBlob failed");
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          const ts = new Date()
+            .toISOString()
+            .replace(/[:T.]/g, "-")
+            .slice(0, 19);
+          a.href = url;
+          a.download = "xianxia_pano_" + ts + ".png";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          showCultMsg("道·传影 已生成 " + W + "×" + H);
+          return true;
+        } catch (err) {
+          console.warn("[pano] capture failed:", err);
+          showCultMsg("道·传影 失败");
+          return false;
+        } finally {
+          if (cubeRT) cubeRT.dispose();
+          if (equirectRT) equirectRT.dispose();
+          if (mat) mat.dispose();
+          if (geo) geo.dispose();
+          [hudEl, swEl, cultEl, hintEl].forEach((el, i) => {
+            if (el && savedVis[i] !== null) el.style.display = savedVis[i];
+          });
+          _panoBusy = false;
+        }
+      }
+      window._capturePanorama = capturePanorama;
+
       // ===== AUDIO SYSTEM =====
       let audioCtx = null,
-        masterGain = null,
-        swordDrone = null,
-        drone2Node = null;
+        masterGain = null;
       function initAudio() {
         if (audioCtx) return;
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         masterGain = audioCtx.createGain();
         masterGain.gain.value = 0.15;
         masterGain.connect(audioCtx.destination);
-        swordDrone = audioCtx.createOscillator();
-        swordDrone.type = "sine";
-        swordDrone.frequency.value = 82;
+        const drone = audioCtx.createOscillator();
+        drone.type = "sine";
+        drone.frequency.value = 82;
+        window._xDrone = drone;
         const dg = audioCtx.createGain();
         dg.gain.value = 0.06;
         const df = audioCtx.createBiquadFilter();
         df.type = "lowpass";
         df.frequency.value = 200;
-        swordDrone.connect(df);
+        drone.connect(df);
         df.connect(dg);
         dg.connect(masterGain);
-        swordDrone.start();
-        // Second harmonic
-        drone2Node = audioCtx.createOscillator();
-        drone2Node.type = "sine";
-        drone2Node.frequency.value = 123;
+        drone.start();
+        // Second harmonic (matches index.html dual-drone)
+        const drone2 = audioCtx.createOscillator();
+        drone2.type = "sine";
+        drone2.frequency.value = 123;
+        window._xDrone2 = drone2;
         const d2g = audioCtx.createGain();
         d2g.gain.value = 0.04;
-        drone2Node.connect(d2g);
+        drone2.connect(d2g);
         d2g.connect(masterGain);
-        drone2Node.start();
+        drone2.start();
       }
       document.addEventListener("click", initAudio, { once: true });
       document.addEventListener("touchstart", initAudio, { once: true });
@@ -2221,11 +2037,13 @@
         DAGENG: [55, 82],
       };
       function updateDroneMode(mode) {
-        if (!swordDrone || !drone2Node) return;
+        if (!audioCtx) return;
+        if (!window._xDrone) return;
         const f = DRONE_FREQS[mode] || DRONE_FREQS.LOTUS;
         const t = audioCtx.currentTime;
-        swordDrone.frequency.linearRampToValueAtTime(f[0], t + 0.5);
-        drone2Node.frequency.linearRampToValueAtTime(f[1], t + 0.5);
+        window._xDrone.frequency.linearRampToValueAtTime(f[0], t + 0.5);
+        if (window._xDrone2)
+          window._xDrone2.frequency.linearRampToValueAtTime(f[1], t + 0.5);
       }
       let _qiWarnPlayed = false;
       function playQiWarning() {
@@ -2493,27 +2311,12 @@
       const _medVigEl = document.getElementById("med-vignette");
       const _hudSceneEl = document.getElementById("hud-scene");
       const _hudModeEl = document.getElementById("hud-mode");
-      const _hudFpsEl = document.getElementById("hud-fps");
 
-      function toggleFS() {
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-          var el = document.documentElement;
-          (
-            el.requestFullscreen ||
-            el.webkitRequestFullscreen ||
-            el.msRequestFullscreen ||
-            function () {}
-          ).call(el);
-        } else {
-          (
-            document.exitFullscreen ||
-            document.webkitExitFullscreen ||
-            document.msExitFullscreen ||
-            function () {}
-          ).call(document);
-        }
+      // Sync UI with restored cultivation (道·传承)
+      if (_realmEl && REALMS[cult.realmIdx]) {
+        _realmEl.textContent = REALMS[cult.realmIdx].name;
+        _realmEl.style.color = REALMS[cult.realmIdx].color;
       }
-      window.toggleFS = toggleFS;
 
       // Expose to window for HTML onclick + testability
       window._castSpell = castSpell;
@@ -2521,133 +2324,7 @@
       window._toggleMeditation = toggleMeditation;
       window.cult = cult;
       window.state = state;
-      window.scene = scene;
-
-      // ===== VR TELEPORT SYSTEM =====
-      const teleportRing = new THREE.Mesh(
-        new THREE.RingGeometry(0.3, 0.35, 32),
-        new THREE.MeshBasicMaterial({
-          color: 0x00ffaa,
-          transparent: true,
-          opacity: 0,
-          side: THREE.DoubleSide,
-        }),
-      );
-      teleportRing.rotation.x = -Math.PI / 2;
-      teleportRing.position.y = 0.02;
-      scene.add(teleportRing);
-
-      const teleportArcGeo = new THREE.BufferGeometry();
-      teleportArcGeo.setAttribute(
-        "position",
-        new THREE.BufferAttribute(new Float32Array(30 * 3), 3),
-      );
-      const teleportArc = new THREE.Line(
-        teleportArcGeo,
-        new THREE.LineBasicMaterial({
-          color: 0x00ffaa,
-          transparent: true,
-          opacity: 0,
-        }),
-      );
-      scene.add(teleportArc);
-
-      let teleportTarget = null;
-      let teleportAiming = false;
-      const _tpDir = new THREE.Vector3();
-      const _tpOrigin = new THREE.Vector3();
-      const _tpP = new THREE.Vector3();
-      const _tpV = new THREE.Vector3();
-      const _tpStep = new THREE.Vector3();
-      const _tpCamPos = new THREE.Vector3();
-      const _tpOffset = new THREE.Vector3();
-
-      function updateTeleport(session, delta) {
-        if (!session) return;
-        teleportAiming = false;
-        teleportTarget = null;
-
-        for (const source of session.inputSources) {
-          if (!source.gamepad || source.handedness !== "left") continue;
-          const gp = source.gamepad;
-          if (gp.axes.length < 4) continue;
-
-          const fwd = -gp.axes[3];
-          if (fwd < 0.5) continue;
-
-          teleportAiming = true;
-          const ctrl = controller1;
-          if (!ctrl) continue;
-
-          _tpDir.set(0, 0, -1).applyQuaternion(ctrl.quaternion);
-          ctrl.getWorldPosition(_tpOrigin);
-          _tpV.copy(_tpDir).multiplyScalar(5);
-          const gravity = -9.8;
-          _tpP.copy(_tpOrigin);
-          const dt2 = 0.05;
-
-          const arr = teleportArc.geometry.attributes.position.array;
-          let arcLen = 0;
-          for (let step = 0; step < 30; step++) {
-            arr[arcLen * 3] = _tpP.x;
-            arr[arcLen * 3 + 1] = _tpP.y;
-            arr[arcLen * 3 + 2] = _tpP.z;
-            arcLen++;
-            _tpV.y += gravity * dt2;
-            _tpStep.copy(_tpV).multiplyScalar(dt2);
-            _tpP.add(_tpStep);
-            if (_tpP.y <= 0.02) {
-              teleportTarget = _tpP;
-              arr[arcLen * 3] = _tpP.x;
-              arr[arcLen * 3 + 1] = 0;
-              arr[arcLen * 3 + 2] = _tpP.z;
-              arcLen++;
-              break;
-            }
-          }
-          for (let i = arcLen; i < 30; i++) {
-            arr[i * 3] = arr[i * 3 + 1] = arr[i * 3 + 2] = 0;
-          }
-          teleportArc.geometry.attributes.position.needsUpdate = true;
-          teleportArc.geometry.setDrawRange(0, arcLen);
-          break;
-        }
-
-        teleportArc.material.opacity = teleportAiming ? 0.6 : 0;
-        if (teleportTarget) {
-          teleportRing.position.set(teleportTarget.x, 0.02, teleportTarget.z);
-          teleportRing.material.opacity = 0.5;
-          teleportRing.rotation.z += delta * 2;
-        } else {
-          teleportRing.material.opacity = 0;
-        }
-
-        if (teleportTarget && teleportAiming) {
-          for (const source of session.inputSources) {
-            if (source.handedness !== "left" || !source.gamepad) continue;
-            if (source.gamepad.buttons[0]?.pressed) {
-              camera.getWorldPosition(_tpCamPos);
-              _tpOffset.set(
-                teleportTarget.x - _tpCamPos.x,
-                0,
-                teleportTarget.z - _tpCamPos.z,
-              );
-              const baseRef = renderer.xr.getReferenceSpace();
-              if (baseRef) {
-                const teleportXR = new XRRigidTransform(
-                  { x: -_tpOffset.x, y: 0, z: -_tpOffset.z, w: 1 },
-                  { x: 0, y: 0, z: 0, w: 1 },
-                );
-                const newRef = baseRef.getOffsetReferenceSpace(teleportXR);
-                renderer.xr.setReferenceSpace(newRef);
-              }
-              teleportTarget = null;
-              triggerHaptic(controller1);
-              break;
-            }
-          }
-        }
-      }
+      window.REALMS = REALMS;
 
       // ===== WEBXR SETUP =====
       let controller1, controller2;
@@ -2803,14 +2480,10 @@
         controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.08;
-        controls.maxPolarAngle = Math.PI * 0.95;
-        controls.minDistance = 0;
-        controls.maxDistance = 200;
-        controls.target.set(0, 1.2, -2);
-        // 道·观: stop cinematic auto-orbit on user interaction
-        renderer.domElement.addEventListener("pointerdown", () => {
-          if (controls) controls.autoRotate = false;
-        });
+        controls.maxPolarAngle = Math.PI * 0.85;
+        controls.minDistance = 0.5;
+        controls.maxDistance = 50;
+        controls.target.set(0, 1.2, 0);
 
         // WASD movement
         const keys = {};
@@ -2823,61 +2496,14 @@
 
         window._flatKeys = keys;
 
-        // Mouse/touch pointer for sword target (compatible with OrbitControls)
-        const _ptrVec = new THREE.Vector3();
-        const _ptrWorldPos = new THREE.Vector3();
-        const onPointer = (e) => {
-          const rect = renderer.domElement.getBoundingClientRect();
-          const cx = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
-          const cy = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
-          const ndcX = ((cx - rect.left) / rect.width) * 2 - 1;
-          const ndcY = -((cy - rect.top) / rect.height) * 2 + 1;
-          _ptrVec.set(ndcX, ndcY, 0.5).unproject(camera);
-          _ptrVec.sub(camera.position).normalize();
-          const dist = (1.2 - camera.position.y) / _ptrVec.y || 3;
-          _ptrWorldPos
-            .copy(camera.position)
-            .addScaledVector(_ptrVec, Math.abs(dist));
-          state.targetPosition.copy(_ptrWorldPos);
-        };
-        renderer.domElement.addEventListener("pointermove", onPointer);
-        renderer.domElement.addEventListener(
-          "touchmove",
-          (e) => {
-            e.preventDefault();
-            onPointer(e);
-          },
-          { passive: false },
-        );
-
-        // Show controls hint — device-adaptive
+        // Show controls hint, fade after 4s
         const hint = document.getElementById("controls-hint");
-        if (Sense.touch && !Sense.fine) {
-          hint.innerHTML =
-            '<b style="color:#00ff88">触控修仙</b><br/>' +
-            "拖动=移动剑阵 双击=切换阵型<br/>" +
-            "右划🔥火球 上划⚡雷法 下划❄️冰封 左划⚔️剑气<br/>" +
-            (Sense.gyro ? "倾斜手机=瞄准方向<br/>" : "") +
-            "5-9/0 切换场景";
-        } else if (_gp.on) {
-          hint.innerHTML =
-            '<b style="color:#00ff88">手柄修仙</b><br/>' +
-            "左摇杆=移动 右摇杆=瞄准<br/>" +
-            "A🔥火球 X⚔️剑气 LB❄️冰封 RB⚡雷法<br/>" +
-            "Y=飞行 Select=打坐 B/Start=切阵";
-        } else {
-          hint.innerHTML =
-            '<b style="color:#00ff88">修仙操控</b><br/>WASD移动 Space↑ Shift↓<br/>' +
-            "1🔥火球 2❄️冰封 3⚡雷法 4⚔️剑气<br/>" +
-            "F御剑飞行 M打坐修炼 Q切阵 E切画质<br/>" +
-            "5~' 切换仙界场景 双击=切阵";
-        }
         hint.style.display = "block";
         hint.style.opacity = "0.85";
         setTimeout(() => {
           hint.style.opacity = "0";
           setTimeout(() => (hint.style.display = "none"), 2000);
-        }, 6000);
+        }, 4000);
 
         // Double-click to switch mode
         renderer.domElement.addEventListener("dblclick", cycleMode);
@@ -2924,25 +2550,29 @@
             updateQualityHUD();
             loadWorld(state.currentWorldId, state.quality);
           }
+          // 道·传影 360° panorama capture
+          else if (k === "p") capturePanorama();
+          // 道·反者道之动 reset cultivation progress
+          else if (k === "r" && e.shiftKey) {
+            resetCult();
+            if (_realmEl && REALMS[cult.realmIdx]) {
+              _realmEl.textContent = REALMS[cult.realmIdx].name;
+              _realmEl.style.color = REALMS[cult.realmIdx].color;
+            }
+            updateQiBar();
+            showCultMsg("道·归零 修为已重置");
+          }
         });
+
+        const _panoBtn = document.getElementById("hud-pano");
+        if (_panoBtn)
+          _panoBtn.addEventListener("click", () => capturePanorama());
       }
 
       function updateFlatMovement(delta) {
         const keys = window._flatKeys;
         if (!keys || !controls) return;
-        if (
-          keys["w"] ||
-          keys["s"] ||
-          keys["a"] ||
-          keys["d"] ||
-          keys[" "] ||
-          keys["shift"]
-        ) {
-          controls.autoRotate = false;
-        }
-        // 道·行: Movement speed proportional to scene scale — natural perceived pace
-        const sceneScale = state.currentSplat?.scale?.x || 1;
-        const speed = 5 * delta * sceneScale;
+        const speed = 3 * delta;
         camera.getWorldDirection(_xFwdVec);
         _xFwdVec.y = 0;
         _xFwdVec.normalize();
@@ -2950,25 +2580,21 @@
         _xRightVec.crossVectors(forward, _xUpVec);
         const right = _xRightVec;
 
-        let fwdAmt = 0,
-          rightAmt = 0;
-        if (keys["w"]) fwdAmt += 1;
-        if (keys["s"]) fwdAmt -= 1;
-        if (keys["a"]) rightAmt -= 1;
-        if (keys["d"]) rightAmt += 1;
-        // Gamepad left stick (blended seamlessly)
-        if (_gp.on) {
-          if (Math.abs(_gp.axes[0]) > 0.15) rightAmt += _gp.axes[0];
-          if (Math.abs(_gp.axes[1]) > 0.15) fwdAmt -= _gp.axes[1];
-          controls.autoRotate = false;
+        if (keys["w"]) {
+          camera.position.addScaledVector(forward, speed);
+          controls.target.addScaledVector(forward, speed);
         }
-        if (Math.abs(fwdAmt) > 0.01) {
-          camera.position.addScaledVector(forward, speed * fwdAmt);
-          controls.target.addScaledVector(forward, speed * fwdAmt);
+        if (keys["s"]) {
+          camera.position.addScaledVector(forward, -speed);
+          controls.target.addScaledVector(forward, -speed);
         }
-        if (Math.abs(rightAmt) > 0.01) {
-          camera.position.addScaledVector(right, speed * rightAmt);
-          controls.target.addScaledVector(right, speed * rightAmt);
+        if (keys["a"]) {
+          camera.position.addScaledVector(right, -speed);
+          controls.target.addScaledVector(right, -speed);
+        }
+        if (keys["d"]) {
+          camera.position.addScaledVector(right, speed);
+          controls.target.addScaledVector(right, speed);
         }
         if (keys[" "]) {
           camera.position.y += speed;
@@ -3030,6 +2656,11 @@
       async function init() {
         showLoading(true, "初始化修仙界...");
 
+        // Load SparkJS
+        const sparkOk = await loadSparkJS();
+        if (!sparkOk)
+          console.warn("⚠️ SparkJS unavailable — will use fallback rendering");
+
         // Use embedded scenes (standalone) or fetch from Hub API (localhost dev)
         if (EMBEDDED_SCENES.length > 0) {
           state.scenes = EMBEDDED_SCENES;
@@ -3058,7 +2689,7 @@
           const card = document.createElement("div");
           card.className = "scene-card" + (i === 0 ? " active" : "");
           card.innerHTML = `${s.thumbnail ? `<img src="${s.thumbnail}" alt="${s.name}" loading="lazy">` : '<div style="background:#1a1a2e;height:100%;display:flex;align-items:center;justify-content:center">🌍</div>'}
-            <div class="label">${SCENE_CN[s.id] || s.name || "Unknown"}</div>`;
+      <div class="label">${SCENE_CN[s.id] || s.name || "Unknown"}</div>`;
           card.onclick = () => {
             document
               .querySelectorAll(".scene-card")
@@ -3073,9 +2704,28 @@
           state.currentWorldId = state.scenes[0].id;
         }
 
-        // 道·要: Set up FLAT MODE entry FIRST — this MUST succeed even if XR setup crashes
+        // Setup XR
+        setupXRInputs();
+
+        // SparkJS VR Button — optimized for 3DGS VR rendering
+        const vrButtonEl = VRButton.createButton(renderer, {
+          optionalFeatures: [
+            "local-floor",
+            "bounded-floor",
+            "hand-tracking",
+            "layers",
+          ],
+        });
+        if (vrButtonEl) {
+          vrButtonEl.style.display = "none";
+          document.body.appendChild(vrButtonEl);
+        }
+
         const vrBtn = document.getElementById("enterVR");
         const flatBtn = document.getElementById("enterFlat");
+
+        // Check VR support
+        checkVRSupport(vrBtn, vrButtonEl);
 
         flatBtn.onclick = () => {
           document.getElementById("overlay").classList.add("hidden");
@@ -3087,34 +2737,6 @@
           loadWorld(state.currentWorldId, state.quality);
         };
 
-        // 道·柔: XR setup is non-fatal — many browsers lack VR support
-        let vrButtonEl = null;
-        try {
-          setupXRInputs();
-        } catch (xrErr) {
-          console.warn("⚠️ XR input setup failed (non-fatal):", xrErr);
-        }
-
-        try {
-          vrButtonEl = VRButton.createButton(renderer, {
-            optionalFeatures: [
-              "local-floor",
-              "bounded-floor",
-              "hand-tracking",
-              "layers",
-            ],
-          });
-          if (vrButtonEl) {
-            vrButtonEl.style.display = "none";
-            document.body.appendChild(vrButtonEl);
-          }
-        } catch (vrBtnErr) {
-          console.warn("⚠️ VRButton creation failed (non-fatal):", vrBtnErr);
-        }
-
-        // Check VR support (async, non-blocking)
-        checkVRSupport(vrBtn, vrButtonEl);
-
         showLoading(false);
 
         // XR session events
@@ -3124,9 +2746,12 @@
           document.getElementById("overlay").classList.add("hidden");
           document.getElementById("hud").style.display = "none";
           document.getElementById("cultivation-hud").style.display = "flex";
-          scene.fog.near = 40;
-          scene.fog.far = 150;
+          scene.fog = new THREE.Fog("#050a1e", 40, 150);
           if (!cult.atmosParticles) createAtmosphericParticles();
+          // 道·推进到极: Quest 3 fixed foveation — shift GPU budget to center of view
+          try {
+            renderer.xr.setFoveation(IS_MOBILE ? 1.0 : 0.0);
+          } catch (_) {}
           if (!state.currentWorldId)
             loadWorld(CFG.defaultWorldId, state.quality);
           console.log("🥽 VR session started");
@@ -3134,14 +2759,8 @@
         renderer.xr.addEventListener("sessionend", () => {
           state.isVR = false;
           document.getElementById("hud").style.display = "flex";
-          scene.fog.near = 15;
-          scene.fog.far = 80;
+          scene.fog = new THREE.Fog("#050a1e", 15, 80);
         });
-
-        console.log(
-          "🏯 init() complete — SplatMesh:",
-          typeof SplatMesh === "function" ? "✅" : "❌",
-        );
       }
 
       async function checkVRSupport(btn, vrButtonEl) {
@@ -3154,7 +2773,7 @@
                 btn.disabled = false;
                 btn.onclick = () => {
                   initAudio();
-                  if (vrButtonEl) vrButtonEl.click();
+                  vrButtonEl.click();
                   document.getElementById("overlay").classList.add("hidden");
                   document.getElementById("scene-switcher").style.display =
                     "flex";
@@ -3176,27 +2795,18 @@
       const clock = new THREE.Clock();
       let lastTime = 0,
         fpsCount = 0,
-        fpsLast = performance.now(),
-        _stableFpsHigh = 0,
-        _lastQualitySwitch = 0;
+        fpsLast = performance.now();
 
       renderer.setAnimationLoop((timestamp, frame) => {
         const time = clock.getElapsedTime();
         const delta = time - lastTime;
         lastTime = time;
 
-        // 道·输入: drain all universal input intents (touch/gyro/gamepad)
-        drainDaoIntents();
-
-        // localFrame compensation — VR only (道·静: 致虚极 守静笃)
-        // SparkJS hack for Quest 3/Vision Pro teleport discontinuities.
-        // In flat mode, OrbitControls moves camera smoothly; triggering this
-        // every 0.5 units forces full gaussian re-sort (500k) per frame → 1 FPS.
-        // 反者道之动: the "fix" was the disease. Disable in flat mode.
-        if (state.isVR && lastCameraPos.distanceTo(camera.position) > 0.5) {
+        // localFrame compensation — essential for floating-point precision in large splat scenes
+        if (lastCameraPos.distanceTo(camera.position) > 0.5) {
           localFrame.position.copy(camera.position).multiplyScalar(-1);
-          lastCameraPos.copy(camera.position);
         }
+        lastCameraPos.copy(camera.position);
 
         // XR input
         if (state.isVR && frame) {
@@ -3262,7 +2872,6 @@
               }
             }
           }
-          updateTeleport(session, delta);
           updateVRHUD();
         } else {
           if (cult.flying) updateFlight(delta);
@@ -3288,33 +2897,8 @@
               CFG.swordCount,
               adaptiveSwordCount + 3,
             );
-          if (_hudFpsEl)
-            _hudFpsEl.textContent = `${adaptiveSwordCount}剑 ${fps}FPS | ${Sense.label}`;
-          // 道·适应: dynamic quality — 唯变所适 适应一切
-          const _qCooldownOk = performance.now() - _lastQualitySwitch > 15000;
-          // 道·序: Never switch quality while splat is loading/processing
-          const _canSwitchQuality =
-            !_loadingWorld && _splatReady && _qCooldownOk;
-          if (fps < 8 && state.quality !== "low" && _canSwitchQuality) {
-            console.warn("⚠️ 道·退: FPS=" + fps + ", 自动降级画质");
-            state.quality = "low";
-            _lastQualitySwitch = performance.now();
-            _stableFpsHigh = 0;
-            updateQualityHUD();
-            loadWorld(state.currentWorldId, "low");
-          } else if (fps > 55 && state.quality === "low" && _canSwitchQuality) {
-            _stableFpsHigh++;
-            if (_stableFpsHigh >= 4) {
-              console.log("🔺 道·进: FPS=" + fps + " stable, 升级至medium");
-              state.quality = "medium";
-              _lastQualitySwitch = performance.now();
-              _stableFpsHigh = 0;
-              updateQualityHUD();
-              loadWorld(state.currentWorldId, "medium");
-            }
-          } else if (fps <= 55) {
-            _stableFpsHigh = 0;
-          }
+          const el = document.getElementById("hud-fps");
+          if (el) el.textContent = `${adaptiveSwordCount}剑 ${fps}FPS`;
         }
 
         renderer.render(scene, camera);
@@ -3331,14 +2915,7 @@
       });
 
       // Boot
-      init().catch((e) => {
-        console.error("🚨 init() fatal error:", e);
-        const el = document.getElementById("loading-text");
-        if (el) {
-          el.textContent = "初始化失败: " + e.message;
-          el.style.display = "block";
-        }
-      });
+      init();
     </script>
   </body>
 </html>
