@@ -1,9 +1,12 @@
 # Dev/test artifacts
 _e2e_full.py
 _e2e_*.log
+_e2e_*.err
+_e2e_pid.txt
 _test_features.py
 _test_index_spell.py
 _q3_verify.py
+_q3_verify*.log
 _q3_serve.py
 _q3_beacon_result.json
 worldlabs_hub.py
