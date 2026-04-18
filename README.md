@@ -10,9 +10,16 @@ Quest 3 浏览器打开 → 进入VR → 伸手控剑 → 四种阵型随手势�
 
 | 入口 | URL |
 |------|-----|
-| **公网HTTPS** | https://aiotvr.xyz/quest/jianzhen.html |
+| **公网HTTPS (GitHub Pages)** | https://zhouyoukang.github.io/vr-xianxia-jianzhen/ |
+| **公网HTTPS (阿里云, 旧)** | https://aiotvr.xyz/quest/jianzhen.html ※ 2026-04 当前 SSH/443 暂不可达, 以 GH Pages 为准 |
 | **本地开发** | http://localhost:8870 |
 | **Quest 3 ADB** | `adb reverse tcp:8870 tcp:8870` → http://localhost:8870 |
+
+三页面完整公网路径 (GitHub Pages · v10.1):
+- `jianzhen` (大庚剑阵): https://zhouyoukang.github.io/vr-xianxia-jianzhen/index.html
+- `xianxia` (修仙WorldLabs): https://zhouyoukang.github.io/vr-xianxia-jianzhen/xianxia_worldlabs.html
+- `diag` (Quest 3 诊断): https://zhouyoukang.github.io/vr-xianxia-jianzhen/_q3_diag.html
+- `beacon` (Quest 3 信标): https://zhouyoukang.github.io/vr-xianxia-jianzhen/_q3_beacon.html
 
 ## 核心功能
 
@@ -97,8 +104,22 @@ adb -s 2G0YC5ZG8L08Z7 reverse tcp:8870 tcp:8870
 adb -s 2G0YC5ZG8L08Z7 shell am start -a android.intent.action.VIEW \
   -d "http://localhost:8870" com.oculus.browser
 
-# 部署到阿里云
-scp index.html aliyun:/var/www/quest/jianzhen.html
+# 公网部署 (GitHub Pages, v10.1 已就绪)
+# 推到 main 即自动重建, 通常 1-2 分钟生效
+git push origin main
+# 阿里云部署 (备用, 当前 SSH 不通)
+# scp index.html aliyun:/var/www/quest/jianzhen.html
+```
+
+## 一键真机 (Quest 3)
+
+```bash
+# ① USB 连接 Quest 3, 开启开发者模式, 确认 adb devices 有设备
+# ② 让 Quest 3 浏览器直接访问公网 GitHub Pages (无需 ADB reverse)
+adb shell am start -a android.intent.action.VIEW \
+  -d "https://zhouyoukang.github.io/vr-xianxia-jianzhen/" com.oculus.browser
+
+# ③ 戴上头显, 点击页面 "VR模式" 进入, 享受 F1 注视点/F2 传承/F3 传影
 ```
 
 ## 性能
