@@ -1664,6 +1664,8 @@
         }
       }
       function updateSpells(dt) {
+        // 道·时度 — 帧停滞/切焦不应一次清空 CD/qi/粒子生命 (100ms 封顶, 容 10fps rAF)
+        dt = Math.min(dt, 0.1);
         for (let i = cult.spellParticles.length - 1; i >= 0; i--) {
           const p = cult.spellParticles[i];
           p.userData.life -= dt;
